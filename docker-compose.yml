@@ -15,7 +15,7 @@ services:
     networks:
       - ai-learning-platform-net
     command: >
-      uvicorn backend.main:app
+      uvicorn Backend.main:app
       --host 0.0.0.0
       --port 8000
 

@@ -10,7 +10,6 @@ uvicorn[standard]==0.30.6
 pydantic==2.12.5
 pydantic-settings==2.12.0
 python-dotenv==1.2.1
-python=3.11.14
 
 # =========================================================
 # LLM / OPENAI

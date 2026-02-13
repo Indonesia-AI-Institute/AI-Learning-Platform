@@ -22,36 +22,52 @@ berbasis LLM dengan support:
 ------------------------------------------------------------------------
 
 # 📂 Project Structure
-
-    src/backend
-    |    │
-    |    ├── api/
-    |    │   └── v1/
-    |    │       └── chat_routes.py
-    |    │
-    |    ├── core/
-    |    │   ├── config.py
-    |    │   └── constants.py
-    |    │
-    |    ├── llm/
-    |    │   ├── providers/
-    |    ││   ├── service/
-    |    │   │   └── llm_service.py
-    |    │   └── base/
-    |    │
-    |    ├── services/
-    |    │   └── chat_service.py
-    |    │
-    |    ├── schemas/
-    |    │   └── chat/
-    |    │
-    |    ├── guardrails/
-    |    │
-    |    ├── utils/
-    |    │
-    |    └── main.py
-    |    ├── .env_example
-    |── requirements.txt
+    AI learning platform/
+    |
+    ├── .venv/
+    ├── src/
+        └──backend/
+    |       ├── api/
+    |       │   ├── v1/
+    |       │   |   ├──chat_routes.py
+    |       │   |   └── health_routes.py
+    |       |   ├── deps.py
+    |       |   └── router.py
+    |       |    
+    |       ├── core/
+    |       │   ├── config.py
+    |       │   └── constants.py
+    |       │
+    |       ├── guardrails/
+    |       │   └── banlist_filter.py
+    |       |
+    |       ├── llm/
+    |       │   ├── providers/
+    |       │   |   ├── __init__.py
+    |       │   |   └── openai_providers.py 
+    |       │   |
+    |       │   ├── service/
+    |       │   │   └── llm_service.py
+    |       │   └── base/
+    |       │       └── llm_providers.py
+    |       │
+    |       ├── services/
+    |       │   └── chat_service.py
+    |       │
+    |       ├── schemas/
+    |       │   └── chat/
+    |       │       ├──  chat_request.py
+    |       │       ├──  chat_response.py
+    |       │       └── chat_stream_chunk.py
+    |       ├── utils/
+    |       │   └── streaming_utils.py
+    |       └──main.py
+    |
+    ├── .dockerignore
+    ├── .env_example
+    ├── docker-compose.yml
+    ├── Dockerfile
+    └── requirements.txt
 ------------------------------------------------------------------------
 
 # ⚙️ Requirements

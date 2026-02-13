@@ -17,10 +17,65 @@ Scope Saat Ini:
 ✔ Guardrail Config
 """
 
+from pathlib import Path
 from typing import List
+import os
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import ConfigDict
+
+
+# =========================================================
+# PROJECT ROOT DETECTOR
+# =========================================================
+
+def find_project_root(start_path: Path) -> Path:
+    """
+    Naik folder sampai ketemu salah satu marker project.
+    """
+
+    markers = [
+        ".git",
+        "pyproject.toml",
+        "requirements.txt",
+        ".env",
+        ".env_example",
+    ]
+
+    current = start_path.resolve()
+
+    while current != current.parent:
+        if any((current / marker).exists() for marker in markers):
+            return current
+        current = current.parent
+
+    return start_path
+
+
+CURRENT_FILE = Path(__file__).resolve()
+PROJECT_ROOT = find_project_root(CURRENT_FILE)
+
+# Candidate env locations (priority order)
+ENV_CANDIDATES = [
+    PROJECT_ROOT / ".env",
+    PROJECT_ROOT / "src" / ".env",
+    CURRENT_FILE.parents[2] / ".env",  # fallback legacy layout
+]
+
+
+def load_env_file():
+    """
+    Load first existing .env file.
+    """
+    for env_path in ENV_CANDIDATES:
+        if env_path.exists():
+            load_dotenv(env_path)
+            return env_path
+    return None
+
+
+LOADED_ENV_PATH = load_env_file()
 
 
 # =========================================================
@@ -84,8 +139,7 @@ class Settings(BaseSettings):
     # PYDANTIC SETTINGS CONFIG
     # =====================================================
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
+        env_file=None,  # Disable pydantic's own env file loading
         case_sensitive=True,
         extra="ignore"
     )

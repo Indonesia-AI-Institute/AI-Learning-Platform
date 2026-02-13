@@ -1,0 +1,24 @@
+version: "3.9"
+
+name: ai-learning-platform
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-learning-platform-api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    networks:
+      - ai-learning-platform-net
+    command: >
+      uvicorn backend.main:app
+      --host 0.0.0.0
+      --port 8000
+
+networks:
+  ai-learning-platform-net:
+    driver: bridge

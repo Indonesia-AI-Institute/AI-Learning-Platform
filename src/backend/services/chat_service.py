@@ -2,155 +2,81 @@
 chat_service.py
 ===============
 
-Business service untuk chatbot orchestration.
-
-Tanggung jawab:
-- Handle chat request dari API layer
-- Normalisasi input message
-- Call LLM Service
-- Future hook untuk:
-    - Task logging
-    - Prompt scoring
-    - Analytics
-
-Saat ini fokus:
-✔ Stateless chat
-✔ Raw prompt passthrough
-✔ SSE streaming ready
-✔ Multi session ready (future DB)
-
-Tidak termasuk:
-❌ Database
-❌ Task persistence
-❌ Prompt scoring automation
+Chat Orchestration Layer
 """
 
-from typing import List, Dict, Any, AsyncGenerator
+from typing import Any, Dict, List, AsyncGenerator
 
-from llm.service.llm_service import LLMService
+from agents.registry.agent_registry import AgentRegistry
+
+
+class UnknownAgentError(Exception):
+    """Raised when requested agent is not registered."""
+    pass
 
 
 class ChatService:
     """
-    Main business service untuk Chatbot.
+    Main Chat Orchestration Layer.
+
+    - Responsible for resolving agent
+    - Delegating generate / stream
+    - Does NOT contain business logic
     """
 
-    def __init__(self, llm_service: LLMService):
-        self.llm_service = llm_service
+    def __init__(self, agent_registry: AgentRegistry):
+        self.agent_registry = agent_registry
 
     # =====================================================
-    # INTERNAL MESSAGE BUILDER
+    # INTERNAL
     # =====================================================
 
-    def _build_messages(
+    def _get_agent(self, agent_type: str):
+        agent = self.agent_registry.get_agent(agent_type)
+
+        if not agent:
+            raise UnknownAgentError(f"Unknown agent type: {agent_type}")
+
+        return agent
+
+    # =====================================================
+    # NON STREAM RESPONSE
+    # =====================================================
+
+    async def generate(
         self,
-        user_prompt: str,
-        system_prompt: str | None = None,
-        chat_history: List[Dict[str, str]] | None = None,
-    ) -> List[Dict[str, str]]:
-        """
-        Convert input menjadi OpenAI-compatible messages format.
-        """
-
-        messages: List[Dict[str, str]] = []
-
-        if system_prompt:
-            messages.append({
-                "role": "system",
-                "content": system_prompt,
-            })
-
-        if chat_history:
-            messages.extend(chat_history)
-
-        messages.append({
-            "role": "user",
-            "content": user_prompt,
-        })
-
-        return messages
-
-    def _normalize_llm_response(
-        self,
-        resp: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """
-        Normalize provider response → domain response contract.
-
-        Supports future multi-provider mapping.
-        """
-
-        # --- Content fallback chain (future proof) ---
-        content = (
-            resp.get("content")
-            or resp.get("text")
-            or resp.get("completion")
-            or ""
-        )
-
-        # --- Optional Safety Guard ---
-        if not content:
-            raise ValueError("LLM returned empty content")
-
-        return {
-            "response_text": content,
-            "usage": resp.get("usage"),
-            "model": resp.get("model")
-            # Future ready:
-            # "provider": resp.get("provider")
-            # "latency_ms": resp.get("latency")
-        }
-
-    # =====================================================
-    # NON STREAM CHAT
-    # =====================================================
-
-    async def chat(
-        self,
-        user_prompt: str,
-        system_prompt: str | None = None,
-        chat_history: List[Dict[str, str]] | None = None,
+        agent_type: str,
+        messages: List[Dict[str, str]],
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
-        Non streaming chat response.
+        Generate full response from agent.
         """
 
-        messages = self._build_messages(
-            user_prompt=user_prompt,
-            system_prompt=system_prompt,
-            chat_history=chat_history,
-        )
+        agent = self._get_agent(agent_type)
 
-        response = await self.llm_service.generate(
+        return await agent.generate(
             messages=messages,
             **kwargs,
         )
 
-        return self._normalize_llm_response(response)
-
     # =====================================================
-    # STREAM CHAT (MAIN CHATBOT PATH)
+    # STREAM RESPONSE
     # =====================================================
 
-    async def stream_chat(
+    async def stream_generate(
         self,
-        user_prompt: str,
-        system_prompt: str | None = None,
-        chat_history: List[Dict[str, str]] | None = None,
+        agent_type: str,
+        messages: List[Dict[str, str]],
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
         """
-        Streaming chat response untuk SSE endpoint.
+        Stream response from agent.
         """
 
-        messages = self._build_messages(
-            user_prompt=user_prompt,
-            system_prompt=system_prompt,
-            chat_history=chat_history,
-        )
+        agent = self._get_agent(agent_type)
 
-        async for token in self.llm_service.stream_generate(
+        async for token in agent.stream_generate(
             messages=messages,
             **kwargs,
         ):

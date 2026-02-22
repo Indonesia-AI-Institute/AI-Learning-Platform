@@ -2,22 +2,17 @@
 chat_request.py
 ===============
 
-Pydantic schema untuk Chat Request dari frontend.
+Pydantic schema for Chat Request (Split Agent Architecture).
 
-Digunakan oleh:
-- Chat REST endpoint
-- Chat SSE endpoint
+Used by:
+- /chat/direct/*
+- /chat/socratic/*
 
-Saat ini fokus:
-✔ Text prompt only
-✔ Raw prompt passthrough
-✔ Stateless ready
-✔ SSE ready
-
-Future Ready:
-- Task based tracking
-- Multi session tracking
-- Model selection
+Architecture:
+✔ Stateless
+✔ Multi-turn ready
+✔ Socratic ready
+✔ Streaming handled by endpoint
 """
 
 from typing import List, Optional
@@ -25,23 +20,23 @@ from pydantic import BaseModel, Field
 
 
 # =========================================================
-# CHAT MESSAGE HISTORY ITEM
+# CHAT MESSAGE ITEM
 # =========================================================
 
 class ChatMessage(BaseModel):
     """
-    Single message dalam chat history.
+    Single message in conversation history.
     """
 
     role: str = Field(
         ...,
-        description="Role message: system | user | assistant",
+        description="Role of the message sender (user | assistant | system)",
         example="user"
     )
 
     content: str = Field(
         ...,
-        description="Isi message text",
+        description="Message content text",
         example="Explain machine learning in simple terms."
     )
 
@@ -52,53 +47,44 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     """
-    Main request schema untuk Chat API.
+    Chat request for Direct or Socratic endpoint.
+    Agent selection is handled by URL path.
     """
 
-    user_prompt: str = Field(
+    messages: List[ChatMessage] = Field(
         ...,
-        description="Prompt utama dari user",
-        example="Apa itu Large Language Model?"
+        description="Full conversation history (stateless)"
     )
 
     system_prompt: Optional[str] = Field(
         None,
-        description="Optional system instruction untuk AI behavior"
-    )
-
-    chat_history: Optional[List[ChatMessage]] = Field(
-        None,
-        description="Optional chat history untuk multi-turn conversation"
+        description="Optional system prompt override"
     )
 
     # =====================================================
-    # FUTURE READY FIELDS (SAFE UNTUK SEKARANG)
+    # FUTURE EXTENSIONS (SAFE)
     # =====================================================
 
     task_id: Optional[str] = Field(
         None,
-        description="Future: Task identifier untuk logging per task"
+        description="Optional task identifier"
     )
 
     session_id: Optional[str] = Field(
         None,
-        description="Future: Session identifier untuk multi session chat"
+        description="Optional session identifier"
     )
 
     class Config:
         json_schema_extra = {
             "example": {
-                "user_prompt": "Explain what is neural network",
-                "system_prompt": "You are a helpful AI tutor.",
-                "chat_history": [
+                "messages": [
                     {
                         "role": "user",
-                        "content": "What is AI?"
-                    },
-                    {
-                        "role": "assistant",
-                        "content": "AI is Artificial Intelligence..."
+                        "content": "Explain what is a neural network"
                     }
-                ]
+                ],
+                "task_id": "task_123",
+                "session_id": "session_abc"
             }
         }

@@ -33,7 +33,7 @@ def format_sse(data: dict) -> str:
     Convert dict -> SSE formatted string.
 
     SSE Standard:
-    data: <json>
+    data: <json>\n\n
     """
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
@@ -101,10 +101,15 @@ async def sse_stream_wrapper(
 
     try:
         async for token in token_generator:
+            # Filter empty / None tokens (safety)
+            if not token:
+                continue
+
             yield build_token_event(token)
 
-        # Send done event
+        # Send done event after completion
         yield build_done_event()
 
     except Exception as e:
+        # Send error event safely
         yield build_error_event(str(e))

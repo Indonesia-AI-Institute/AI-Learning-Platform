@@ -26,7 +26,7 @@ berbasis LLM dengan support:
     |
     ├── .venv/
     ├── src/
-        └──backend/
+    |    └──backend/
     |       ├── api/
     |       │   ├── v1/
     |       │   |   ├──chat_routes.py
@@ -41,19 +41,36 @@ berbasis LLM dengan support:
     |       ├── guardrails/
     |       │   └── banlist_filter.py
     |       |
+    |       ├──  agents/
+    |       |     ├── prompts/
+    |       |     |       ├── socratic_tutor.yaml
+    |       |     |       └── direct_tutor.yaml
+    |       |     |
+    |       |     ├── services/
+    |       |     |       ├── socratic_agent.py
+    |       |     |       ├── base_agent.py
+    |       |     |       └── direct_agent.py
+    |       |     └── registry/
+    |       |             ├── agent_registry.py
+    |       |             └── agent_factory.py
     |       ├── llm/
     |       │   ├── providers/
     |       │   |   ├── __init__.py
     |       │   |   └── openai_providers.py 
     |       │   |
-    |       │   ├── service/
+    |       │   ├── services/
     |       │   │   └── llm_service.py
     |       │   └── base/
     |       │       └── llm_providers.py
     |       │
-    |       ├── services/
-    |       │   └── chat_service.py
+    |       ├── observability/
+    |       |   ├── logger.py
+    |       |   └── logging_config.py
     |       │
+    |       ├──services/
+    |       │  └── chat_services.py
+    |       │
+    |       │    
     |       ├── schemas/
     |       │   └── chat/
     |       │       ├──  chat_request.py
@@ -67,6 +84,7 @@ berbasis LLM dengan support:
     ├── .env_example
     ├── docker-compose.yml
     ├── Dockerfile
+    ├── README.md
     └── requirements.txt
 ------------------------------------------------------------------------
 

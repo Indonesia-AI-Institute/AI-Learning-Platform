@@ -5,12 +5,15 @@ deps.py
 Dependency Injection untuk FastAPI.
 
 Fungsi:
-- Menyediakan instance service (LLM Service, Chat Service, dll)
-- Menghindari pembuatan object berulang di routes
+- Menyediakan instance LLM Service
+- Menyediakan Agent Registry
+- Menyediakan Chat Service (orchestration layer)
+- Menghindari pembuatan object berulang
 - Mempermudah testing dan mocking
 
-Current Scope:
+Scope:
 ✔ LLM Service
+✔ Agent Registry
 ✔ Chat Service
 
 Future:
@@ -21,32 +24,44 @@ Future:
 
 from functools import lru_cache
 
+from llm.services.llm_service import LLMService
+from agents.registry.agent_registry import AgentRegistry
 from services.chat_service import ChatService
-from llm.service.llm_service import LLMService
 
 
 # =========================================================
-# LLM SERVICE DEPENDENCY
+# LLM SERVICE (Singleton)
 # =========================================================
 @lru_cache()
 def get_llm_service() -> LLMService:
     """
     Singleton LLM Service.
-
-    Menggunakan lru_cache supaya:
-    - Tidak recreate setiap request
-    - Lebih hemat resource
     """
-
     return LLMService()
 
 
 # =========================================================
-# CHAT SERVICE DEPENDENCY
+# AGENT REGISTRY (Singleton)
+# =========================================================
+@lru_cache()
+def get_agent_registry() -> AgentRegistry:
+    """
+    Registry berisi semua agent (Direct, Socratic, dll).
+    """
+    llm_service = get_llm_service()
+    return AgentRegistry(llm_service=llm_service)
+
+
+# =========================================================
+# CHAT SERVICE (Orchestration Layer)
 # =========================================================
 @lru_cache()
 def get_chat_service() -> ChatService:
-    llm_service = get_llm_service()
-    return ChatService(
-        llm_service=llm_service
-        )
+    """
+    ChatService bertanggung jawab untuk:
+    - Memilih agent
+    - Menjalankan agent
+    - Handle streaming / non-stream
+    """
+    registry = get_agent_registry()
+    return ChatService(agent_registry=registry)

@@ -2,24 +2,11 @@
 chat_routes.py
 ==============
 
-Chat API Routes.
+Chat API Routes (Split Agent Architecture).
 
-Fungsi:
-- Endpoint komunikasi chatbot
-- Handle SSE streaming response
-- Handle non-stream response (testing / fallback)
-
-Scope Saat Ini:
-✔ Student kirim prompt
-✔ Return assistant response
-✔ Streaming SSE support
-✔ Banlist guardrail via ChatService
-
-Future:
-- Task Context Injection
-- Chat History Storage
-- Prompt Scoring
-- Multi Model Selection
+Endpoints:
+✔ /chat/direct/*
+✔ /chat/socratic/*
 """
 
 from fastapi import APIRouter, Depends
@@ -34,33 +21,44 @@ from schemas.chat.chat_response import ChatResponse
 from utils.streaming_utils import sse_stream_wrapper
 
 
-router = APIRouter()
+router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
 # =========================================================
-# STREAMING CHAT (PRIMARY MODE - SSE)
+# INTERNAL HELPER
 # =========================================================
-@router.post("/stream")
-async def stream_chat(
+
+def build_messages(request: ChatRequest):
+    messages = []
+
+    if request.system_prompt:
+        messages.append({
+            "role": "system",
+            "content": request.system_prompt,
+        })
+
+    messages.extend([
+        msg.model_dump() for msg in request.messages
+    ])
+
+    return messages
+
+
+# =========================================================
+# DIRECT AGENT
+# =========================================================
+
+@router.post("/direct/stream")
+async def stream_direct_chat(
     request: ChatRequest,
     chat_service: ChatService = Depends(get_chat_service),
 ):
-    """
-    Streaming Chat Endpoint (SSE).
-
-    Flow:
-    Client → POST prompt
-    Server → SSE token stream
-    """
-    chat_history_dicts = None
-    if request.chat_history:
-        chat_history_dicts = [msg.model_dump() for msg in request.chat_history]
+    messages = build_messages(request)
 
     async def event_stream():
-        async for chunk in chat_service.stream_chat(
-            user_prompt=request.user_prompt,
-            system_prompt=request.system_prompt,
-            chat_history=chat_history_dicts,
+        async for chunk in chat_service.stream_generate(
+            agent_type="direct_tutor",
+            messages=messages,
         ):
             yield chunk
 
@@ -70,33 +68,58 @@ async def stream_chat(
     )
 
 
-# =========================================================
-# NON STREAM CHAT (SECONDARY / TESTING MODE)
-# =========================================================
-@router.post("/generate", response_model=ChatResponse)
-async def generate_chat(
+@router.post("/direct/generate", response_model=ChatResponse)
+async def generate_direct_chat(
     request: ChatRequest,
     chat_service: ChatService = Depends(get_chat_service),
 ):
-    """
-    Non-stream chat endpoint.
+    messages = build_messages(request)
 
-    Berguna untuk:
-    - Testing
-    - Postman
-    - Debugging
-    """
-
-    # ── Konversi chat_history dari ChatMessage ke dict ──
-    chat_history_dicts = None
-    if request.chat_history:
-        chat_history_dicts = [msg.model_dump() for msg in request.chat_history]
-
-    # Panggil ChatService dengan format yang sudah benar
-    response = await chat_service.chat(
-        user_prompt=request.user_prompt,
-        system_prompt=request.system_prompt,
-        chat_history=chat_history_dicts,
+    response = await chat_service.generate(
+        agent_type="direct_tutor",
+        messages=messages,
     )
 
-    return ChatResponse(**response)
+    return ChatResponse(
+        response_text=response["content"]
+    )
+
+# =========================================================
+# SOCRATIC AGENT
+# =========================================================
+
+@router.post("/socratic/stream")
+async def stream_socratic_chat(
+    request: ChatRequest,
+    chat_service: ChatService = Depends(get_chat_service),
+):
+    messages = build_messages(request)
+
+    async def event_stream():
+        async for chunk in chat_service.stream_generate(
+            agent_type="socratic_tutor",
+            messages=messages,
+        ):
+            yield chunk
+
+    return StreamingResponse(
+        sse_stream_wrapper(event_stream()),
+        media_type="text/event-stream",
+    )
+
+
+@router.post("/socratic/generate", response_model=ChatResponse)
+async def generate_socratic_chat(
+    request: ChatRequest,
+    chat_service: ChatService = Depends(get_chat_service),
+):
+    messages = build_messages(request)
+
+    response = await chat_service.generate(
+        agent_type="socratic_tutor",
+        messages=messages,
+    )
+
+    return ChatResponse(
+        response_text=response["content"]
+    )

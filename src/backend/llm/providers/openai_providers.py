@@ -2,34 +2,23 @@
 openai_provider.py
 ==================
 
-Implementasi OpenAI LLM Provider.
-
-Provider ini:
-- Menggunakan OpenAI official python SDK
-- Mengikuti interface BaseLLMProvider
-- Support async generate
-- Siap untuk future streaming (SSE)
-
-NOTE:
-Fokus saat ini:
-✔ Backend API
-✔ LLM API
-❌ Database
-❌ Tool calling complex orchestration
+OpenAI Provider with Production Logging.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
+import time
 
 from openai import AsyncOpenAI
 
 from llm.base.llm_providers import BaseLLMProvider, llm_provider_registry
 from core.config import settings
+from observability.logging.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class OpenAIProvider(BaseLLMProvider):
-    """
-    OpenAI LLM Provider Implementation.
-    """
 
     def __init__(
         self,
@@ -38,9 +27,6 @@ class OpenAIProvider(BaseLLMProvider):
         max_tokens: int = 1024,
         timeout: int = 60,
     ):
-        """
-        Initialize OpenAI Provider.
-        """
 
         super().__init__(
             model_name=model_name,
@@ -49,15 +35,24 @@ class OpenAIProvider(BaseLLMProvider):
             timeout=timeout,
         )
 
-        # Init OpenAI Async Client
         self.client = AsyncOpenAI(
             api_key=settings.OPENAI_API_KEY,
             base_url=settings.OPENAI_API_BASE,
             timeout=timeout,
         )
 
+        logger.info(
+            "provider.openai.init",
+            extra={
+                "event": "provider.openai.init",
+                "model": model_name,
+                "timeout": timeout,
+                "has_api_key": bool(settings.OPENAI_API_KEY),
+            },
+        )
+
     # ======================================================
-    # REQUIRED METHOD IMPLEMENTATION
+    # NON STREAM
     # ======================================================
 
     async def generate(
@@ -65,17 +60,28 @@ class OpenAIProvider(BaseLLMProvider):
         messages: List[Dict[str, str]],
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        """
-        Generate non-stream response dari OpenAI.
-        """
+
+        start_time = time.time()
 
         try:
+            logger.info(
+                "provider.openai.request",
+                extra={
+                    "event": "provider.openai.request",
+                    "model": self.model_name,
+                    "message_count": len(messages),
+                    "temperature": kwargs.get("temperature", self.temperature),
+                },
+            )
+
             response = await self.client.chat.completions.create(
                 model=self.model_name,
                 messages=messages,
                 temperature=kwargs.get("temperature", self.temperature),
                 max_tokens=kwargs.get("max_tokens", self.max_tokens),
             )
+
+            latency_ms = int((time.time() - start_time) * 1000)
 
             content = response.choices[0].message.content if response.choices else ""
 
@@ -91,6 +97,17 @@ class OpenAIProvider(BaseLLMProvider):
             if response.choices:
                 finish_reason = response.choices[0].finish_reason
 
+            logger.info(
+                "provider.openai.response",
+                extra={
+                    "event": "provider.openai.response",
+                    "model": self.model_name,
+                    "latency_ms": latency_ms,
+                    "finish_reason": finish_reason,
+                    "usage": usage,
+                },
+            )
+
             return self._build_response(
                 content=content,
                 raw=response,
@@ -99,10 +116,18 @@ class OpenAIProvider(BaseLLMProvider):
             )
 
         except Exception as e:
+            logger.exception(
+                "provider.openai.error",
+                extra={
+                    "event": "provider.openai.error",
+                    "model": self.model_name,
+                    "error": str(e),
+                },
+            )
             raise RuntimeError(f"OpenAI generate error: {str(e)}")
 
     # ======================================================
-    # OPTIONAL STREAM METHOD (Future Ready)
+    # STREAM
     # ======================================================
 
     async def stream_generate(
@@ -110,11 +135,20 @@ class OpenAIProvider(BaseLLMProvider):
         messages: List[Dict[str, str]],
         **kwargs: Any,
     ):
-        """
-        Streaming response untuk SSE.
-        """
+
+        start_time = time.time()
+        token_count = 0
 
         try:
+            logger.info(
+                "provider.openai.stream_start",
+                extra={
+                    "event": "provider.openai.stream_start",
+                    "model": self.model_name,
+                    "message_count": len(messages),
+                },
+            )
+
             stream = await self.client.chat.completions.create(
                 model=self.model_name,
                 messages=messages,
@@ -124,6 +158,7 @@ class OpenAIProvider(BaseLLMProvider):
             )
 
             async for chunk in stream:
+
                 if not chunk.choices:
                     continue
 
@@ -133,14 +168,35 @@ class OpenAIProvider(BaseLLMProvider):
 
                 token = delta.content
                 if token:
+                    token_count += 1
                     yield token
 
+            latency_ms = int((time.time() - start_time) * 1000)
+
+            logger.info(
+                "provider.openai.stream_end",
+                extra={
+                    "event": "provider.openai.stream_end",
+                    "model": self.model_name,
+                    "latency_ms": latency_ms,
+                    "stream_token_count": token_count,
+                },
+            )
+
         except Exception as e:
+            logger.exception(
+                "provider.openai.stream_error",
+                extra={
+                    "event": "provider.openai.stream_error",
+                    "model": self.model_name,
+                    "error": str(e),
+                },
+            )
             raise RuntimeError(f"OpenAI streaming error: {str(e)}")
 
 
 # ======================================================
-# REGISTER PROVIDER KE GLOBAL REGISTRY
+# REGISTER PROVIDER
 # ======================================================
 
 llm_provider_registry.register("openai", OpenAIProvider)

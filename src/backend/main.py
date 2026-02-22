@@ -24,12 +24,22 @@ Future:
 """
 
 from contextlib import asynccontextmanager
-import openai
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from observability.logging.logging_config import setup_logging
+from observability.logging.logger import get_logger
+
 from core.config import settings
 from api.router import api_router
+
+
+# =========================================================
+# SETUP LOGGING (WAJIB PALING AWAL)
+# =========================================================
+setup_logging()
+logger = get_logger(__name__)
 
 
 # =========================================================
@@ -48,17 +58,17 @@ async def lifespan(app: FastAPI):
     # =========================
     # STARTUP
     # =========================
-    print("🚀 Starting AI Learning Platform Backend...")
-    print(f"Environment : {settings.ENVIRONMENT}")
-    print(f"LLM Provider: {settings.DEFAULT_LLM_PROVIDER}")
-    print(f"Model       : {settings.DEFAULT_LLM_MODEL}")
+    logger.info("Starting AI Learning Platform Backend")
+    logger.info(f"Environment : {settings.ENVIRONMENT}")
+    logger.info(f"LLM Provider: {settings.DEFAULT_LLM_PROVIDER}")
+    logger.info(f"Model       : {settings.DEFAULT_LLM_MODEL}")
 
     yield
 
     # =========================
     # SHUTDOWN
     # =========================
-    print("🛑 Shutting down backend...")
+    logger.info("🛑 Shutting down backend")
 
 
 # =========================================================

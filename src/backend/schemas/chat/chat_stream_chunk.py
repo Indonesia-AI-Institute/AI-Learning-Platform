@@ -20,7 +20,7 @@ Future Ready:
 """
 
 from typing import Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # =========================================================
@@ -58,8 +58,31 @@ class ChatStreamChunk(BaseModel):
         description="Error message jika event = error"
     )
 
-    class Config:
-        json_schema_extra = {
+    # =====================================================
+    # VALIDATION RULES (IMPORTANT)
+    # =====================================================
+
+    @model_validator(mode="after")
+    def validate_event_payload(self):
+        """
+        Ensure correct payload based on event type.
+        """
+
+        if self.event == "token" and not self.data:
+            raise ValueError("Token event must contain data")
+
+        if self.event == "error" and not self.error_message:
+            raise ValueError("Error event must contain error_message")
+
+        if self.event == "done":
+            # done should not carry token or error
+            self.data = None
+            self.error_message = None
+
+        return self
+
+    model_config = {
+        "json_schema_extra": {
             "examples": [
                 {
                     "event": "token",
@@ -70,8 +93,7 @@ class ChatStreamChunk(BaseModel):
                     "data": "Intelligence "
                 },
                 {
-                    "event": "done",
-                    "data": None
+                    "event": "done"
                 },
                 {
                     "event": "error",
@@ -79,3 +101,4 @@ class ChatStreamChunk(BaseModel):
                 }
             ]
         }
+    }

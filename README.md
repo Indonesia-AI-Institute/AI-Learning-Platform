@@ -24,12 +24,39 @@ berbasis LLM dengan support:
 # 📂 Project Structure
     AI learning platform/
     |
+    ├── alembic/
+    |   ├── versions/
+        |   └──xxxxx_(version).py
+    |   ├── env.py
+    |   ├── README.md
+    |   └── script.py.mako
     ├── .venv/
     ├── src/
     |    └──backend/
+    |       ├── auth/
+    |       |   └──security.py
+    |       ├── models/
+    |       |   ├── __init__.py
+    |       |   ├── base.py 
+    |       |   ├── chat_history.py
+    |       |   ├── chat_session.py
+    |       |   ├── class_model.py
+    |       |   ├── course.py
+    |       |   ├── enrollment.py
+    |       |   ├── task.py
+    |       |   ├── session_analytics.py
+    |       |   ├── token_blacklist.py
+    |       |   └── user.py
+    |       |
     |       ├── api/
     |       │   ├── v1/
-    |       │   |   ├──chat_routes.py
+    |       │   |   ├── chat_routes.py
+    |       |   |   ├── auth_routes.py
+    |       |   |   ├── analytics_routes.py
+    |       |   |   ├── class_routes.py
+    |       |   |   ├── course_routes.py
+    |       |   |   ├── enrollment_routes.py
+    |       |   |   ├── task_routes.py
     |       │   |   └── health_routes.py
     |       |   ├── deps.py
     |       |   └── router.py
@@ -38,6 +65,11 @@ berbasis LLM dengan support:
     |       │   ├── config.py
     |       │   └── constants.py
     |       │
+    |       ├── db/
+    |       |   ├── init_db.py
+    |       |   ├── base.py
+    |       |   └── session.py
+    |       |
     |       ├── guardrails/
     |       │   └── banlist_filter.py
     |       |
@@ -67,19 +99,63 @@ berbasis LLM dengan support:
     |       |   ├── logger.py
     |       |   └── logging_config.py
     |       │
-    |       ├──services/
-    |       │  └── chat_services.py
+    |       ├── services/
+    |       |   ├── auth_service.py
+    |       │   ├── chat_service.py
+    |       |   ├── chat_history_service.py
+    |       |   ├── class_service.py
+    |       |   ├── context_window_service.py
+    |       |   ├── conversation_service.py
+    |       |   ├── course_service.py
+    |       |   ├── enrollment_service.py
+    |       |   ├── session_analytics_service.py
+    |       |   ├── session_service.py
+    |       |   └── task_service.py
+    |       |
+    |       ├── repositories/
+    |       |   ├── base_repository.py
+    |       |   ├── chat_history_repository.py
+    |       |   ├── class_repository.py
+    |       |   ├── course_repository.py
+    |       |   ├── session_repository.py
+    |       |   ├── task_repository.py
+    |       |   ├── token_blacklist_repository.py
+    |       |   ├── enrollment_repository.py
+    |       |   └── user_repository.py
     |       │
-    |       │    
     |       ├── schemas/
-    |       │   └── chat/
-    |       │       ├──  chat_request.py
-    |       │       ├──  chat_response.py
-    |       │       └── chat_stream_chunk.py
+    |       │   ├── chat/
+    |       |   |    ├── chat_history_response.py
+    |       │   |    ├──  chat_request.py
+    |       │   |    ├──  chat_response.py
+    |       |   |    ├── chat_session_response
+    |       │   |    └── chat_stream_chunk.py
+    |       |   ├── analytics/
+    |       |   |    └── analytics_response.py
+    |       |   ├── auth/
+    |       |   |    ├── login_requst.py
+    |       |   |    ├── register_request.py
+    |       |   |    ├── token_request.py
+    |       |   |    └── user_response.py
+    |       |   ├── classes/
+    |       |   |    ├── class_crate.py
+    |       |   |    ├── class_response.py
+    |       |   |    └── class_update.py
+    |       |   ├── course/
+    |       |   |    ├── course_crate.py
+    |       |   |    ├── course_response.py
+    |       |   |    └── course_update.py
+    |       |   ├── task/
+    |       |   |    ├── task_crate.py
+    |       |   |    ├── task_response.py
+    |       |   |    └── task_update.py
+    |       |   ├── enrollment/
+    |       |   |    ├── enrollment_crate.py
+    |       |   |    └── enrollment_response.py
     |       ├── utils/
     |       │   └── streaming_utils.py
     |       └──main.py
-    |
+    ├── alembic.ini
     ├── .dockerignore
     ├── .env_example
     ├── docker-compose.yml

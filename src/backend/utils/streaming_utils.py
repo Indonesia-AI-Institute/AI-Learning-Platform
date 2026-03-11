@@ -21,11 +21,11 @@ data: <json>\n\n
 import json
 from typing import AsyncGenerator
 
-from schemas.chat.chat_stream_chunk import ChatStreamChunk
+from src.backend.schemas.chat.chat_stream_chunk import ChatStreamChunk
 
 
 # =========================================================
-# CORE SSE FORMATTER (Transport Layer)
+# CORE SSE FORMATTER
 # =========================================================
 
 def format_sse(data: dict) -> str:
@@ -43,73 +43,35 @@ def format_sse(data: dict) -> str:
 # =========================================================
 
 def build_token_event(token: str) -> str:
-    """
-    Build token streaming event.
-    """
-
     chunk = ChatStreamChunk(
         event="token",
         data=token
     )
-
     return format_sse(chunk.model_dump())
 
 
 def build_done_event() -> str:
-    """
-    Build stream completion event.
-    """
-
     chunk = ChatStreamChunk(
         event="done"
     )
-
     return format_sse(chunk.model_dump())
 
 
 def build_error_event(message: str) -> str:
-    """
-    Build stream error event.
-    """
-
     chunk = ChatStreamChunk(
         event="error",
         error_message=message
     )
-
     return format_sse(chunk.model_dump())
 
 
 # =========================================================
-# MAIN STREAM WRAPPER (SAFE STREAM EXECUTION)
+# SAFE STREAM WRAPPER
 # =========================================================
 
-async def sse_stream_wrapper(
-    token_generator: AsyncGenerator[str, None]
-) -> AsyncGenerator[str, None]:
-    """
-    Wrap token generator -> SSE formatted stream.
+async def sse_stream_wrapper(generator):
 
-    Responsibilities:
-    - Convert token -> SSE token event
-    - Handle stream completion
-    - Handle exception -> error event
+    async for chunk in generator:
+        yield f"data: {chunk}\n\n"
 
-    Digunakan di:
-    - Chat route layer
-    """
-
-    try:
-        async for token in token_generator:
-            # Filter empty / None tokens (safety)
-            if not token:
-                continue
-
-            yield build_token_event(token)
-
-        # Send done event after completion
-        yield build_done_event()
-
-    except Exception as e:
-        # Send error event safely
-        yield build_error_event(str(e))
+    yield "data: [DONE]\n\n"

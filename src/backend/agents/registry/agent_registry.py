@@ -7,9 +7,9 @@ Registry + factory for all available agents.
 
 from typing import Dict, Type
 
-from agents.services.direct_agent import DirectTutorAgent
-from agents.services.socratic_agent import SocraticTutorAgent
-from agents.services.base_agent import BaseAgent
+from src.backend.agents.services.direct_agent import DirectTutorAgent
+from src.backend.agents.services.socratic_agent import SocraticTutorAgent
+from src.backend.agents.services.base_agent import BaseAgent
 
 from pathlib import Path
 

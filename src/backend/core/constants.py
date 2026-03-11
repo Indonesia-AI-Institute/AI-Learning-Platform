@@ -22,7 +22,7 @@ Bukan config env → itu di config.py
 DEFAULT_LLM_PROVIDER = "openai"
 
 # Default model (OpenAI)
-DEFAULT_OPENAI_MODEL = "gpt-4o"
+DEFAULT_LLM_MODEL = "gpt-4o"
 
 # Default generation parameters
 DEFAULT_TEMPERATURE = 0.7

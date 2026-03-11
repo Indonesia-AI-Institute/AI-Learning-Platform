@@ -7,7 +7,8 @@ Chat Orchestration Layer
 
 from typing import Any, Dict, List, AsyncGenerator
 
-from agents.registry.agent_registry import AgentRegistry
+from src.backend.models.chat_session import ChatSession
+from src.backend.agents.registry.agent_registry import AgentRegistry
 
 
 class UnknownAgentError(Exception):
@@ -67,17 +68,9 @@ class ChatService:
     async def stream_generate(
         self,
         agent_type: str,
-        messages: List[Dict[str, str]],
-        **kwargs: Any,
-    ) -> AsyncGenerator[str, None]:
-        """
-        Stream response from agent.
-        """
-
+        messages: list,
+    ):
         agent = self._get_agent(agent_type)
 
-        async for token in agent.stream_generate(
-            messages=messages,
-            **kwargs,
-        ):
-            yield token
+        async for event in agent.stream_generate(messages=messages):
+            yield event

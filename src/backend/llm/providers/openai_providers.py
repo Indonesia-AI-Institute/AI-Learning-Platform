@@ -10,9 +10,9 @@ import time
 
 from openai import AsyncOpenAI
 
-from llm.base.llm_providers import BaseLLMProvider, llm_provider_registry
-from core.config import settings
-from observability.logging.logger import get_logger
+from src.backend.llm.base.llm_providers import BaseLLMProvider, llm_provider_registry
+from src.backend.core.config import settings
+from src.backend.observability.logging.logger import get_logger
 
 
 logger = get_logger(__name__)
@@ -135,9 +135,14 @@ class OpenAIProvider(BaseLLMProvider):
         messages: List[Dict[str, str]],
         **kwargs: Any,
     ):
+        """
+        Streaming dengan structured event.
+        """
 
         start_time = time.time()
+        full_content = ""
         token_count = 0
+        finish_reason = None
 
         try:
             logger.info(
@@ -156,20 +161,32 @@ class OpenAIProvider(BaseLLMProvider):
                 max_tokens=kwargs.get("max_tokens", self.max_tokens),
                 stream=True,
             )
+            # Start event
+            yield {
+                "type": "start",
+                "model": self.model_name,
+                "provider": "openai",
+            }
 
             async for chunk in stream:
 
                 if not chunk.choices:
                     continue
 
-                delta = chunk.choices[0].delta
-                if not delta:
-                    continue
+                choice = chunk.choices[0]
 
-                token = delta.content
-                if token:
+                if choice.delta and choice.delta.content:
+                    token = choice.delta.content
+                    full_content += token
                     token_count += 1
-                    yield token
+
+                    yield {
+                        "type": "token",
+                        "content": token,
+                    }
+
+                if choice.finish_reason:
+                    finish_reason = choice.finish_reason
 
             latency_ms = int((time.time() - start_time) * 1000)
 
@@ -180,8 +197,20 @@ class OpenAIProvider(BaseLLMProvider):
                     "model": self.model_name,
                     "latency_ms": latency_ms,
                     "stream_token_count": token_count,
+                    "finish_reason": finish_reason,
                 },
             )
+            usage = {
+                "prompt_tokens": 0,
+                "completion_tokens": token_count,
+                "total_tokens": token_count,
+            }
+            yield {
+                "type": "done",
+                "full_content": full_content,
+                "usage": usage,  # streaming OpenAI v1 tidak kirim usage
+                "finish_reason": finish_reason,
+            }
 
         except Exception as e:
             logger.exception(

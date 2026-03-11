@@ -8,14 +8,14 @@ LLM Orchestration Service (Logging + Future PostgreSQL Ready)
 from typing import Any, Dict, List, AsyncGenerator
 import time
 
-from core.config import settings
-from core.constants import DEFAULT_LLM_PROVIDER
+from src.backend.core.config import settings
+from src.backend.core.constants import DEFAULT_LLM_PROVIDER
 
-import llm.providers
-from llm.base.llm_providers import llm_provider_registry
-from guardrails.banlist_filter import BanListFilter
+import src.backend.llm.providers
+from src.backend.llm.base.llm_providers import llm_provider_registry
+from src.backend.guardrails.banlist_filter import BanListFilter
 
-from observability.logging.logger import get_logger
+from src.backend.observability.logging.logger import get_logger
 
 
 logger = get_logger(__name__)
@@ -53,6 +53,9 @@ class LLMService:
 
         provider_cls = llm_provider_registry.get(self.provider_name)
 
+        if not provider_cls:
+            raise ValueError(f"Unknown LLM provider: {self.provider_name}")
+
         provider = provider_cls(
             model_name=settings.DEFAULT_LLM_MODEL,
             temperature=settings.DEFAULT_TEMPERATURE,
@@ -68,8 +71,6 @@ class LLMService:
                 "model": settings.DEFAULT_LLM_MODEL,
             },
         )
-        if not provider_cls:
-            raise ValueError(f"Unknown LLM provider: {self.provider_name}")
 
         return provider
 
@@ -170,9 +171,9 @@ class LLMService:
         self,
         messages: List[Dict[str, str]],
         **kwargs: Any,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Streaming token generator untuk SSE.
+        Structured streaming response.
         """
 
         start_time = time.time()
@@ -198,11 +199,11 @@ class LLMService:
 
             provider = self._create_provider()
 
-            async for token in provider.stream_generate(
+            async for event in provider.stream_generate(
                 messages=messages,
                 **kwargs,
             ):
-                yield token
+                yield event
 
             latency_ms = int((time.time() - start_time) * 1000)
 

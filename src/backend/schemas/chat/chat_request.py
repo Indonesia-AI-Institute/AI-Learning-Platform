@@ -6,13 +6,7 @@ Pydantic schema for Chat Request (Split Agent Architecture).
 
 Used by:
 - /chat/direct/*
-- /chat/socratic/*
-
-Architecture:
-✔ Stateless
-✔ Multi-turn ready
-✔ Socratic ready
-✔ Streaming handled by endpoint
+- /chat/sessions/{session_id}/stream
 """
 
 from typing import List, Optional
@@ -53,26 +47,12 @@ class ChatRequest(BaseModel):
 
     messages: List[ChatMessage] = Field(
         ...,
-        description="Full conversation history (stateless)"
+        description="Full conversation history"
     )
 
     system_prompt: Optional[str] = Field(
         None,
         description="Optional system prompt override"
-    )
-
-    # =====================================================
-    # FUTURE EXTENSIONS (SAFE)
-    # =====================================================
-
-    task_id: Optional[str] = Field(
-        None,
-        description="Optional task identifier"
-    )
-
-    session_id: Optional[str] = Field(
-        None,
-        description="Optional session identifier"
     )
 
     class Config:
@@ -83,8 +63,6 @@ class ChatRequest(BaseModel):
                         "role": "user",
                         "content": "Explain what is a neural network"
                     }
-                ],
-                "task_id": "task_123",
-                "session_id": "session_abc"
+                ]
             }
         }

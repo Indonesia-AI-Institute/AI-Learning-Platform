@@ -23,7 +23,6 @@ import os
 
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import ConfigDict
 
 
 # =========================================================
@@ -100,6 +99,10 @@ class Settings(BaseSettings):
     # =====================================================
     SECRET_KEY: str = ""
 
+    # =====================================================
+    #DATABASE CONFIG
+    # =====================================================
+    DATABASE_URL:str
 
     # =====================================================
     # OPENAI CONFIG (Current Active LLM Provider)

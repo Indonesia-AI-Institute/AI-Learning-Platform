@@ -28,11 +28,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from observability.logging.logging_config import setup_logging
-from observability.logging.logger import get_logger
+from src.backend.observability.logging.logging_config import setup_logging
+from src.backend.observability.logging.logger import get_logger
 
-from core.config import settings
-from api.router import api_router
+from src.backend.core.config import settings
+from src.backend.api.router import api_router
+
 
 
 # =========================================================
@@ -98,7 +99,6 @@ app.add_middleware(
 # REGISTER API ROUTES
 # =========================================================
 app.include_router(api_router, prefix="/api")
-
 
 # =========================================================
 # ROOT ENDPOINT (Optional but useful)

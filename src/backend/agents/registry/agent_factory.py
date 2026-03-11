@@ -13,8 +13,8 @@ Responsibilities:
 from pathlib import Path
 from typing import Any
 
-from agents.registry.agent_registry import AgentRegistry
-from llm.services.llm_service import LLMService
+from src.backend.agents.registry.agent_registry import AgentRegistry
+from src.backend.llm.services.llm_service import LLMService
 
 
 class AgentFactory:

@@ -59,6 +59,33 @@ class SessionRepository(BaseRepository[ChatSession]):
         return result.scalars().all()
 
     # =========================
+    # GET SESSIONS BY STUDENT AND TASK
+    # Digunakan untuk list session di halaman task detail
+    # =========================
+
+    async def get_by_student_and_task(
+        self,
+        student_id: UUID,
+        task_id: UUID,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[ChatSession]:
+
+        stmt = (
+            select(ChatSession)
+            .where(
+                ChatSession.student_id == student_id,
+                ChatSession.task_id == task_id,
+            )
+            .order_by(ChatSession.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+
+    # =========================
     # GET ACTIVE SESSION OF STUDENT FOR TASK
     # =========================
 

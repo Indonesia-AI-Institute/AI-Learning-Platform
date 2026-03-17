@@ -5,11 +5,11 @@ Chat API Routes (Split Agent Architecture).
 """
 
 from uuid import UUID
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 from src.backend.utils.role_guard import RoleGuard
 from src.backend.api.deps import (
@@ -26,9 +26,9 @@ from src.backend.services.conversation_service import ConversationService
 from src.backend.models.user import User, UserRole
 
 from src.backend.schemas.chat.chat_request import ChatRequest
-from src.backend.schemas.chat.chat_session_create_request import ChatSessionCreateRequest
 from src.backend.schemas.chat.chat_response import ChatResponse
 from src.backend.schemas.chat.chat_session_response import ChatSessionResponse
+from src.backend.schemas.chat.chat_session_create_request import ChatSessionCreateRequest
 from src.backend.schemas.chat.chat_history_response import ChatHistoryResponse, ChatMessageItem
 
 from src.backend.utils.streaming_utils import sse_stream_wrapper
@@ -119,8 +119,6 @@ async def generate_direct_chat(
 
 # =========================================================
 # CREATE SESSION
-# NOTE: Route ini harus di bawah /direct/... tapi di atas
-# /sessions/... untuk menghindari ambiguity matching.
 # =========================================================
 
 @router.post("/sessions/task/{task_id}", response_model=ChatSessionResponse)
@@ -128,7 +126,7 @@ async def create_session(
     task_id: UUID,
     request: ChatSessionCreateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
 ):
     service = SessionService(db)
 
@@ -139,6 +137,62 @@ async def create_session(
             title=request.title,
         )
         return session
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# =========================================================
+# GET MY SESSIONS (Student)
+# =========================================================
+
+@router.get("/sessions/my", response_model=List[ChatSessionResponse])
+async def get_my_sessions(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
+):
+    service = SessionService(db)
+
+    try:
+        sessions = await service.get_my_sessions(
+            current_user=current_user,
+            skip=skip,
+            limit=limit,
+        )
+        return sessions
+
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# =========================================================
+# GET SESSIONS BY TASK (Student)
+# Digunakan di /tasks/{id} untuk tampilkan list session
+# dan tombol resume
+# =========================================================
+
+@router.get("/sessions/task/{task_id}", response_model=List[ChatSessionResponse])
+async def get_sessions_by_task(
+    task_id: UUID,
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
+):
+    service = SessionService(db)
+
+    try:
+        sessions = await service.get_sessions_by_task(
+            current_user=current_user,
+            task_id=task_id,
+            skip=skip,
+            limit=limit,
+        )
+        return sessions
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -197,7 +251,32 @@ async def end_chat_session(
             current_user=current_user,
             session_id=session_id,
         )
-        return session  # langsung return ORM object, Pydantic handle via from_attributes
+        return session
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# =========================================================
+# RESUME SESSION
+# =========================================================
+
+@router.post("/sessions/{session_id}/resume", response_model=ChatSessionResponse)
+async def resume_chat_session(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
+):
+    session_service = SessionService(db)
+
+    try:
+        session = await session_service.resume_session(
+            current_user=current_user,
+            session_id=session_id,
+        )
+        return session
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -219,7 +298,6 @@ async def get_chat_history(
     history_service = ChatHistoryService(db)
 
     try:
-        # Validate access
         await session_service.get_session_detail(
             current_user=current_user,
             session_id=session_id,

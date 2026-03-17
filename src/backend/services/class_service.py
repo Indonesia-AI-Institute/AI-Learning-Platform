@@ -30,7 +30,6 @@ class ClassService:
         if current_user.role != UserRole.TEACHER:
             raise PermissionError("Only teachers can create class.")
 
-        # Check course ownership
         course = await self.course_repo.get(data["course_id"])
         if not course:
             raise ValueError("Course not found.")
@@ -42,7 +41,7 @@ class ClassService:
         return await self.class_repo.create(cls)
 
     # =========================
-    # GET MY CLASSES (Teacher)
+    # GET MY CLASSES (Teacher Only)
     # =========================
 
     async def get_my_classes(
@@ -53,10 +52,28 @@ class ClassService:
     ) -> List[Class]:
 
         if current_user.role != UserRole.TEACHER:
-            raise PermissionError("Only teachers.")
+            raise PermissionError("Only teachers can access this.")
 
         return await self.class_repo.get_by_teacher(
             teacher_id=current_user.id,
+            skip=skip,
+            limit=limit
+        )
+
+    # =========================
+    # GET CLASSES BY COURSE
+    # Used by student to see available classes in a course
+    # =========================
+
+    async def get_classes_by_course(
+        self,
+        course_id: UUID,
+        skip: int = 0,
+        limit: int = 100
+    ) -> List[Class]:
+
+        return await self.class_repo.get_by_course(
+            course_id=course_id,
             skip=skip,
             limit=limit
         )
@@ -76,7 +93,6 @@ class ClassService:
         if not db_class:
             raise ValueError("Class not found.")
 
-        # Validate ownership via course
         if db_class.course.teacher_id != current_user.id:
             raise PermissionError("You do not own this class.")
 
@@ -102,7 +118,7 @@ class ClassService:
         return await self.class_repo.delete(class_id)
 
     # =========================
-    # DETAIL
+    # GET CLASS DETAIL
     # =========================
 
     async def get_class_detail(
@@ -115,7 +131,6 @@ class ClassService:
         if not db_class:
             raise ValueError("Class not found.")
 
-        # Teacher: only owner
         if current_user.role == UserRole.TEACHER:
             if db_class.course.teacher_id != current_user.id:
                 raise PermissionError("Access denied.")

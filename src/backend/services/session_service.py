@@ -14,6 +14,8 @@ from src.backend.repositories.course_repository import CourseRepository
 from src.backend.repositories.class_repository import ClassRepository
 from src.backend.repositories.base_repository import BaseRepository
 
+from src.backend.services.session_analytics_service import SessionAnalyticsService
+
 
 class SessionService:
     def __init__(self, db: AsyncSession):
@@ -23,6 +25,7 @@ class SessionService:
         self.course_repo = CourseRepository(db)
         self.class_repo = ClassRepository(db)
         self.enrollment_repo = BaseRepository(Enrollment, db)
+        self.analytics_service = SessionAnalyticsService(db)
 
     # =========================
     # CREATE SESSION (Student Only)
@@ -88,6 +91,35 @@ class SessionService:
         )
 
     # =========================
+    # GET SESSIONS BY TASK (Student)
+    # Digunakan di halaman task detail untuk list session
+    # dan tombol resume
+    # =========================
+
+    async def get_sessions_by_task(
+        self,
+        current_user: User,
+        task_id: UUID,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[ChatSession]:
+
+        if current_user.role != UserRole.STUDENT:
+            raise PermissionError("Only students can access their sessions.")
+
+        db_task = await self.task_repo.get(task_id)
+        if not db_task:
+            raise ValueError("Task not found.")
+
+        # Filter by both student and task
+        return await self.session_repo.get_by_student_and_task(
+            student_id=current_user.id,
+            task_id=task_id,
+            skip=skip,
+            limit=limit,
+        )
+
+    # =========================
     # GET SESSION DETAIL WITH ACCESS CHECK
     # =========================
 
@@ -139,11 +171,51 @@ class SessionService:
         if not db_session.is_active:
             raise ValueError("Session is already ended.")
 
+        await self.analytics_service.finalize_session_analytics(
+            session=db_session,
+        )
+
         return await self.session_repo.update(
             db_session,
             {
                 "is_active": False,
                 "ended_at": datetime.now(timezone.utc),
+            },
+        )
+
+    # =========================
+    # RESUME SESSION (Student Only)
+    # =========================
+
+    async def resume_session(
+        self,
+        current_user: User,
+        session_id: UUID,
+    ) -> ChatSession:
+
+        db_session = await self.session_repo.get(session_id)
+        if not db_session:
+            raise ValueError("Session not found.")
+
+        if current_user.role != UserRole.STUDENT:
+            raise PermissionError("Only students can resume sessions.")
+
+        if db_session.student_id != current_user.id:
+            raise PermissionError("You do not own this session.")
+
+        if db_session.is_active:
+            raise ValueError("Session is already active.")
+
+        # TODO: RAG context injection
+        # Saat RAG sudah tersedia, inject summary dari chat history
+        # sebagai context awal LLM sebelum session di-reactivate.
+        # Contoh: await rag_service.build_session_summary(session_id)
+
+        return await self.session_repo.update(
+            db_session,
+            {
+                "is_active": True,
+                "ended_at": None,
             },
         )
 

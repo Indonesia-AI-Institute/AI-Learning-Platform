@@ -7,7 +7,7 @@ Dependency Injection Layer
 
 from functools import lru_cache
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,12 +23,13 @@ from src.backend.auth.security import decode_access_token
 # =========================
 # SECURITY SCHEME
 # =========================
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)  # auto_error=False supaya tidak langsung 403 jika tidak ada Bearer
 
 
 # =========================================================
 # LLM SERVICE (Singleton)
 # =========================================================
+
 @lru_cache()
 def get_llm_service() -> LLMService:
     return LLMService()
@@ -51,11 +52,32 @@ def get_chat_service() -> ChatService:
 # =========================================================
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    """
+    Resolve token dari dua sumber:
+    1. httpOnly cookie (frontend web)
+    2. Authorization: Bearer header (Swagger / mobile / API client)
 
-    token = credentials.credentials
+    Cookie diprioritaskan, Bearer sebagai fallback.
+    """
+
+    token: str | None = None
+
+    # 1️⃣ Coba dari cookie dulu
+    token = request.cookies.get("access_token")
+
+    # 2️⃣ Fallback ke Bearer header
+    if not token and credentials:
+        token = credentials.credentials
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
 
     try:
         payload = decode_access_token(token)
@@ -76,7 +98,6 @@ async def get_current_user(
     user_repo = UserRepository(db)
     user = await user_repo.get(user_id)
 
-    # soft delete check
     if not user or user.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -85,6 +106,10 @@ async def get_current_user(
 
     return user
 
+
+# =========================================================
+# ROLE DEPENDENCIES
+# =========================================================
 
 async def require_teacher(
     current_user: User = Depends(get_current_user),
@@ -97,6 +122,7 @@ async def require_teacher(
         )
 
     return current_user
+
 
 async def require_student(
     current_user: User = Depends(get_current_user),

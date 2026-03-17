@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.backend.models.enrollment import Enrollment
 from src.backend.models.user import User, UserRole
 from src.backend.models.class_model import Class
+
 from src.backend.repositories.enrollment_repository import EnrollmentRepository
 from src.backend.repositories.class_repository import ClassRepository
 
@@ -19,6 +20,7 @@ class EnrollmentService:
     # ===============================
     # STUDENT ENROLL
     # ===============================
+
     async def enroll_student(
         self,
         student: User,
@@ -47,8 +49,31 @@ class EnrollmentService:
         return await self.enroll_repo.create(enrollment)
 
     # ===============================
+    # STUDENT UNENROLL
+    # ===============================
+
+    async def unenroll_student(
+        self,
+        student: User,
+        enrollment_id: UUID
+    ) -> None:
+
+        if student.role != UserRole.STUDENT:
+            raise PermissionError("Only students can unenroll.")
+
+        enrollment = await self.enroll_repo.get(enrollment_id)
+        if not enrollment:
+            raise ValueError("Enrollment not found.")
+
+        if enrollment.student_id != student.id:
+            raise PermissionError("You do not own this enrollment.")
+
+        await self.enroll_repo.delete(enrollment_id)
+
+    # ===============================
     # STUDENT VIEW OWN ENROLLMENTS
     # ===============================
+
     async def get_student_enrollments(
         self,
         student: User,
@@ -68,6 +93,7 @@ class EnrollmentService:
     # ===============================
     # TEACHER VIEW CLASS ENROLLMENTS
     # ===============================
+
     async def get_class_enrollments(
         self,
         current_user: User,

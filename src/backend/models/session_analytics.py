@@ -2,13 +2,14 @@
 models/session_analytics.py
 ===========================
 
-Store LLM usage & metadata per assistant response.
+Aggregated analytics per chat session.
+Populated when session is ended via finalize_session_analytics().
 """
 
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Float, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -20,10 +21,15 @@ class SessionAnalytics(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
+    # =========================
+    # REFERENCES
+    # =========================
+
     chat_session_id = Column(
         UUID(as_uuid=True),
         ForeignKey("chat_sessions.id", ondelete="CASCADE"),
         nullable=False,
+        unique=True,  # one analytics record per session
     )
 
     user_id = Column(
@@ -32,18 +38,62 @@ class SessionAnalytics(Base):
         nullable=False,
     )
 
-    prompt_tokens = Column(Integer, nullable=True)
-    completion_tokens = Column(Integer, nullable=True)
-    total_tokens = Column(Integer, nullable=True)
+    task_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("tasks.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # =========================
+    # TOKEN USAGE
+    # =========================
+
+    prompt_tokens = Column(Integer, default=0, nullable=False)
+    completion_tokens = Column(Integer, default=0, nullable=False)
+    total_tokens = Column(Integer, default=0, nullable=False)
+
+    # =========================
+    # PROMPTING BEHAVIOR
+    # =========================
+
+    total_prompts = Column(
+        Integer,
+        default=0,
+        nullable=False,
+        comment="Total number of messages sent by student in this session",
+    )
+
+    avg_prompt_length = Column(
+        Float,
+        default=0.0,
+        nullable=False,
+        comment="Average character length of student prompts",
+    )
+
+    session_duration_seconds = Column(
+        Integer,
+        default=0,
+        nullable=False,
+        comment="Duration from first message to last message in seconds",
+    )
+
+    # =========================
+    # LLM METADATA
+    # =========================
 
     finish_reason = Column(String, nullable=True)
-    
-    created_at = Column(DateTime, server_default=func.now())
 
-    # relationships
-    session = relationship(
-        "ChatSession", 
-        back_populates="analytics")
-    user = relationship(
-        "User"
-        )
+    # =========================
+    # TIMESTAMP
+    # =========================
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # =========================
+    # RELATIONSHIPS
+    # =========================
+
+    session = relationship("ChatSession", back_populates="analytics")
+    user = relationship("User")
+    task = relationship("Task")

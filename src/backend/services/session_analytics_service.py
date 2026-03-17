@@ -1,15 +1,23 @@
 """
 services/session_analytics_service.py
 =====================================
-Analytics for chat session usage.
+
+Analytics for chat sessions.
+Analytics are finalized when a session is ended.
 """
+
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from src.backend.models.session_analytics import SessionAnalytics
 from src.backend.models.chat_session import ChatSession
-from src.backend.models.chat_history import ChatHistory
+from src.backend.models.chat_history import ChatHistory, MessageRole
+from src.backend.models.task import Task
+from src.backend.models.course import Course
+from src.backend.models.class_model import Class
+from src.backend.models.enrollment import Enrollment
 
 
 class SessionAnalyticsService:
@@ -18,73 +26,283 @@ class SessionAnalyticsService:
         self.db = db
 
     # =========================
-    # CREATE ANALYTICS
+    # FINALIZE (called on end_session)
     # =========================
 
-    async def create_analytics(
+    async def finalize_session_analytics(
         self,
-        chat_session_id,
-        user_id,
-        usage: dict | None,
-        finish_reason: str | None,
-    ):
-        analytics = SessionAnalytics(
-            chat_session_id=chat_session_id,
-            user_id=user_id,
-            prompt_tokens=usage.get("prompt_tokens") if usage else None,
-            completion_tokens=usage.get("completion_tokens") if usage else None,
-            total_tokens=usage.get("total_tokens") if usage else None,
-            finish_reason=finish_reason,
+        session: ChatSession,
+    ) -> SessionAnalytics:
+        """
+        Aggregate all metrics from ChatHistory and persist to SessionAnalytics.
+        Called when student ends a session.
+        """
+
+        session_id = session.id
+
+        # --- Total prompts & avg prompt length (user messages only) ---
+        user_messages_stmt = (
+            select(ChatHistory.content)
+            .where(
+                ChatHistory.session_id == session_id,
+                ChatHistory.role == MessageRole.USER,
+            )
+        )
+        result = await self.db.execute(user_messages_stmt)
+        user_messages = result.scalars().all()
+
+        total_prompts = len(user_messages)
+        avg_prompt_length = (
+            sum(len(m) for m in user_messages) / total_prompts
+            if total_prompts > 0
+            else 0.0
         )
 
-        self.db.add(analytics)
+        # --- Session duration (first message to last message) ---
+        duration_stmt = (
+            select(
+                func.min(ChatHistory.created_at),
+                func.max(ChatHistory.created_at),
+            )
+            .where(ChatHistory.session_id == session_id)
+        )
+        duration_result = await self.db.execute(duration_stmt)
+        first_msg, last_msg = duration_result.one()
+
+        session_duration_seconds = 0
+        if first_msg and last_msg and first_msg != last_msg:
+            session_duration_seconds = int(
+                (last_msg - first_msg).total_seconds()
+            )
+
+        # --- Token usage (from assistant messages) ---
+        token_stmt = (
+            select(
+                func.coalesce(func.sum(ChatHistory.input_tokens), 0),
+                func.coalesce(func.sum(ChatHistory.output_tokens), 0),
+            )
+            .where(
+                ChatHistory.session_id == session_id,
+                ChatHistory.role == MessageRole.ASSISTANT,
+            )
+        )
+        token_result = await self.db.execute(token_stmt)
+        total_prompt_tokens, total_completion_tokens = token_result.one()
+        total_tokens = total_prompt_tokens + total_completion_tokens
+
+        # --- Finish reason (from last assistant message) ---
+        finish_reason_stmt = (
+            select(ChatHistory.message_metadata)
+            .where(
+                ChatHistory.session_id == session_id,
+                ChatHistory.role == MessageRole.ASSISTANT,
+            )
+            .order_by(ChatHistory.message_index.desc())
+            .limit(1)
+        )
+        finish_result = await self.db.execute(finish_reason_stmt)
+        last_metadata = finish_result.scalar_one_or_none()
+        finish_reason = (
+            last_metadata.get("finish_reason") if last_metadata else None
+        )
+
+        # --- Upsert analytics (handle resume: update existing record) ---
+        existing_stmt = select(SessionAnalytics).where(
+            SessionAnalytics.chat_session_id == session_id
+        )
+        existing_result = await self.db.execute(existing_stmt)
+        analytics = existing_result.scalar_one_or_none()
+
+        if analytics:
+            # Session was resumed — update existing record
+            analytics.total_prompts = total_prompts
+            analytics.avg_prompt_length = round(avg_prompt_length, 2)
+            analytics.session_duration_seconds = session_duration_seconds
+            analytics.prompt_tokens = total_prompt_tokens
+            analytics.completion_tokens = total_completion_tokens
+            analytics.total_tokens = total_tokens
+            analytics.finish_reason = finish_reason
+        else:
+            # First time ending this session
+            analytics = SessionAnalytics(
+                chat_session_id=session_id,
+                user_id=session.student_id,
+                task_id=session.task_id,
+                total_prompts=total_prompts,
+                avg_prompt_length=round(avg_prompt_length, 2),
+                session_duration_seconds=session_duration_seconds,
+                prompt_tokens=total_prompt_tokens,
+                completion_tokens=total_completion_tokens,
+                total_tokens=total_tokens,
+                finish_reason=finish_reason,
+            )
+            self.db.add(analytics)
+
         await self.db.commit()
         await self.db.refresh(analytics)
 
         return analytics
 
-    # =====================================================
-    # AGGREGATED ANALYTICS
-    # =====================================================
+    # =========================
+    # GET MY ANALYTICS (Student)
+    # =========================
 
-    async def get_user_analytics(self, user_id):
+    async def get_user_analytics(self, user_id: UUID) -> dict:
+        """
+        Aggregated analytics for a single student across all sessions.
+        """
 
-        # total sessions (student)
-        session_stmt = select(func.count()).select_from(ChatSession).where(
-            ChatSession.student_id == user_id
+        stmt = (
+            select(
+                func.count(SessionAnalytics.id),
+                func.coalesce(func.sum(SessionAnalytics.total_prompts), 0),
+                func.coalesce(func.sum(SessionAnalytics.prompt_tokens), 0),
+                func.coalesce(func.sum(SessionAnalytics.completion_tokens), 0),
+                func.coalesce(func.sum(SessionAnalytics.total_tokens), 0),
+                func.coalesce(func.avg(SessionAnalytics.avg_prompt_length), 0.0),
+                func.coalesce(func.sum(SessionAnalytics.session_duration_seconds), 0),
+                func.max(SessionAnalytics.created_at),
+            )
+            .where(SessionAnalytics.user_id == user_id)
         )
-        total_sessions = await self.db.scalar(session_stmt)
 
-        # total messages (join history -> session)
-        message_stmt = (
-            select(func.count())
-            .select_from(ChatHistory)
-            .join(ChatSession, ChatHistory.session_id == ChatSession.id)
-            .where(ChatSession.student_id == user_id)
-        )
-        total_messages = await self.db.scalar(message_stmt)
-
-        # token aggregation
-        token_stmt = select(
-            func.coalesce(func.sum(SessionAnalytics.prompt_tokens), 0),
-            func.coalesce(func.sum(SessionAnalytics.completion_tokens), 0),
-            func.coalesce(func.sum(SessionAnalytics.total_tokens), 0),
-            func.max(SessionAnalytics.created_at),
-        ).where(SessionAnalytics.user_id == user_id)
-
-        result = await self.db.execute(token_stmt)
+        result = await self.db.execute(stmt)
         (
+            total_sessions,
+            total_prompts,
             total_prompt_tokens,
             total_completion_tokens,
             total_tokens,
+            avg_prompt_length,
+            total_duration_seconds,
             last_active,
         ) = result.one()
 
         return {
             "total_sessions": total_sessions or 0,
-            "total_messages": total_messages or 0,
+            "total_prompts": total_prompts or 0,
             "total_prompt_tokens": total_prompt_tokens or 0,
             "total_completion_tokens": total_completion_tokens or 0,
             "total_tokens": total_tokens or 0,
+            "avg_prompt_length": round(float(avg_prompt_length or 0), 2),
+            "total_duration_seconds": total_duration_seconds or 0,
             "last_active": last_active,
+        }
+
+    # =========================
+    # GET CLASS ANALYTICS (Teacher)
+    # =========================
+
+    async def get_class_analytics(self, class_id: UUID) -> list[dict]:
+        """
+        Per-student analytics summary for all students in a class.
+        Teacher uses this to compare prompting behavior across students.
+        """
+
+        stmt = (
+            select(
+                SessionAnalytics.user_id,
+                func.count(SessionAnalytics.id),
+                func.coalesce(func.sum(SessionAnalytics.total_prompts), 0),
+                func.coalesce(func.sum(SessionAnalytics.total_tokens), 0),
+                func.coalesce(func.avg(SessionAnalytics.avg_prompt_length), 0.0),
+                func.coalesce(func.sum(SessionAnalytics.session_duration_seconds), 0),
+                func.max(SessionAnalytics.created_at),
+            )
+            .join(ChatSession, SessionAnalytics.chat_session_id == ChatSession.id)
+            .join(Task, SessionAnalytics.task_id == Task.id)
+            .join(Course, Task.course_id == Course.id)
+            .join(Class, Course.id == Class.course_id)
+            .where(Class.id == class_id)
+            .group_by(SessionAnalytics.user_id)
+        )
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        return [
+            {
+                "student_id": str(row[0]),
+                "total_sessions": row[1],
+                "total_prompts": row[2],
+                "total_tokens": row[3],
+                "avg_prompt_length": round(float(row[4] or 0), 2),
+                "total_duration_seconds": row[5],
+                "last_active": row[6],
+            }
+            for row in rows
+        ]
+
+    # =========================
+    # GET TASK ANALYTICS (Teacher)
+    # =========================
+
+    async def get_task_analytics(self, task_id: UUID) -> list[dict]:
+        """
+        Per-student analytics for a specific task.
+        Teacher uses this to compare how students approached the same task.
+        """
+
+        stmt = (
+            select(
+                SessionAnalytics.user_id,
+                func.count(SessionAnalytics.id),
+                func.coalesce(func.sum(SessionAnalytics.total_prompts), 0),
+                func.coalesce(func.sum(SessionAnalytics.total_tokens), 0),
+                func.coalesce(func.avg(SessionAnalytics.avg_prompt_length), 0.0),
+                func.coalesce(func.sum(SessionAnalytics.session_duration_seconds), 0),
+                func.max(SessionAnalytics.created_at),
+            )
+            .where(SessionAnalytics.task_id == task_id)
+            .group_by(SessionAnalytics.user_id)
+        )
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        return [
+            {
+                "student_id": str(row[0]),
+                "total_sessions": row[1],
+                "total_prompts": row[2],
+                "total_tokens": row[3],
+                "avg_prompt_length": round(float(row[4] or 0), 2),
+                "total_duration_seconds": row[5],
+                "last_active": row[6],
+            }
+            for row in rows
+        ]
+
+    # =========================
+    # GET SESSION DETAIL ANALYTICS (Teacher)
+    # =========================
+
+    async def get_session_analytics(self, session_id: UUID) -> dict | None:
+        """
+        Detailed analytics for a single session.
+        """
+
+        stmt = select(SessionAnalytics).where(
+            SessionAnalytics.chat_session_id == session_id
+        )
+
+        result = await self.db.execute(stmt)
+        analytics = result.scalar_one_or_none()
+
+        if not analytics:
+            return None
+
+        return {
+            "session_id": str(session_id),
+            "student_id": str(analytics.user_id),
+            "task_id": str(analytics.task_id),
+            "total_prompts": analytics.total_prompts,
+            "avg_prompt_length": analytics.avg_prompt_length,
+            "session_duration_seconds": analytics.session_duration_seconds,
+            "prompt_tokens": analytics.prompt_tokens,
+            "completion_tokens": analytics.completion_tokens,
+            "total_tokens": analytics.total_tokens,
+            "finish_reason": analytics.finish_reason,
+            "created_at": analytics.created_at,
+            "updated_at": analytics.updated_at,
         }

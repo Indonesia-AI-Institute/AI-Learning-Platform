@@ -133,9 +133,9 @@ berbasis LLM dengan support:
     |       |   ├── analytics/
     |       |   |    └── analytics_response.py
     |       |   ├── auth/
-    |       |   |    ├── login_requst.py
+    |       |   |    ├── login_request.py
     |       |   |    ├── register_request.py
-    |       |   |    ├── token_request.py
+    |       |   |    ├── token_response.py
     |       |   |    └── user_response.py
     |       |   ├── classes/
     |       |   |    ├── class_crate.py

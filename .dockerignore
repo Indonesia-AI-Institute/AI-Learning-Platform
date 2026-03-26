@@ -1,0 +1,89 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py,cover
+.python-version
+
+# =========================
+# Virtual Environment
+# =========================
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Git
+# =========================
+.git/
+.gitignore
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# Testing / Coverage
+# =========================
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
+# =========================
+# Node (if future frontend added)
+# =========================
+node_modules/
+
+# =========================
+# Docker Dev Overrides
+# =========================
+docker-compose.override.yml
+
+# =========================
+# Build Artifacts
+# =========================
+dist/
+build/
+*.egg-info/
+
+# =========================
+# Jupyter / Notebook (AI project safe)
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Model / Large Files (Optional — Uncomment if needed)
+# =========================
+# models/
+# checkpoints/
+# *.pt
+# *.onnx
+# *.bin

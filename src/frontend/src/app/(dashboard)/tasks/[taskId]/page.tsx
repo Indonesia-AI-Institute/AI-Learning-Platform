@@ -1,18 +1,5 @@
 "use client";
 
-/**
- * app/(dashboard)/tasks/[taskId]/page.tsx
- *
- * Student view:
- * - Task info
- * - List of past sessions with resume button
- * - Start new session button
- *
- * Teacher view:
- * - Task info
- * - Edit / delete task
- */
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
@@ -29,6 +16,7 @@ import {
   Plus,
   RotateCcw,
   Calendar,
+  Users,
 } from "lucide-react";
 
 export default function TaskDetailPage() {
@@ -41,20 +29,17 @@ export default function TaskDetailPage() {
   const [newSessionTitle, setNewSessionTitle] = useState("");
   const [showTitleInput, setShowTitleInput] = useState(false);
 
-  // Fetch task detail
   const { data: task, isLoading: loadingTask } = useQuery({
     queryKey: ["task", taskId],
     queryFn: () => taskService.getTaskDetail(taskId),
   });
 
-  // Fetch sessions for this task (student only)
   const { data: sessions, isLoading: loadingSessions } = useQuery({
     queryKey: ["sessionsByTask", taskId],
     queryFn: () => chatService.getSessionsByTask(taskId),
     enabled: !isTeacher,
   });
 
-  // Create new session
   const createSessionMutation = useMutation({
     mutationFn: () =>
       chatService.createSession(taskId, {
@@ -66,7 +51,6 @@ export default function TaskDetailPage() {
     },
   });
 
-  // Resume session
   const resumeSessionMutation = useMutation({
     mutationFn: (sessionId: string) => chatService.resumeSession(sessionId),
     onSuccess: (session) => {
@@ -91,7 +75,6 @@ export default function TaskDetailPage() {
     <DashboardLayout title={task?.title ?? "Task Detail"}>
       <div className="max-w-2xl space-y-6">
 
-        {/* Back */}
         <Button
           variant="ghost"
           size="sm"
@@ -109,10 +92,20 @@ export default function TaskDetailPage() {
             {/* Task info */}
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold">{task?.title}</h2>
+
+              {/* Class info badge */}
+              {task?.class_info && (
+                <div
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full cursor-pointer hover:bg-muted/80"
+                  onClick={() => router.push(`/classes/${task.class_info!.id}`)}
+                >
+                  <Users className="w-3 h-3" />
+                  {task.class_info.name}
+                </div>
+              )}
+
               {task?.description && (
-                <p className="text-muted-foreground text-sm">
-                  {task.description}
-                </p>
+                <p className="text-muted-foreground text-sm">{task.description}</p>
               )}
               {task?.due_date && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -122,11 +115,10 @@ export default function TaskDetailPage() {
               )}
             </div>
 
-            {/* ===================== STUDENT VIEW ===================== */}
+            {/* STUDENT VIEW */}
             {!isTeacher && (
               <div className="space-y-4">
 
-                {/* Active session warning */}
                 {activeSessions.length > 0 && (
                   <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
                     <p className="text-sm text-yellow-800 font-medium">
@@ -138,23 +130,18 @@ export default function TaskDetailPage() {
                   </div>
                 )}
 
-                {/* Start new session */}
                 <div className="border rounded-lg p-4 space-y-3">
                   <p className="text-sm font-medium">Start a new session</p>
 
                   {showTitleInput && (
                     <div className="space-y-2">
-                      <Label htmlFor="session-title">
-                        Session title (optional)
-                      </Label>
+                      <Label htmlFor="session-title">Session title (optional)</Label>
                       <Input
                         id="session-title"
                         placeholder="e.g. My first attempt"
                         value={newSessionTitle}
                         onChange={(e) => setNewSessionTitle(e.target.value)}
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && handleStartChat()
-                        }
+                        onKeyDown={(e) => e.key === "Enter" && handleStartChat()}
                       />
                     </div>
                   )}
@@ -167,33 +154,23 @@ export default function TaskDetailPage() {
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       {showTitleInput
-                        ? createSessionMutation.isPending
-                          ? "Starting..."
-                          : "Start session"
+                        ? createSessionMutation.isPending ? "Starting..." : "Start session"
                         : "New session"}
                     </Button>
                     {showTitleInput && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowTitleInput(false)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => setShowTitleInput(false)}>
                         Cancel
                       </Button>
                     )}
                   </div>
                 </div>
 
-                {/* Session list */}
                 {loadingSessions ? (
-                  <p className="text-muted-foreground text-sm">
-                    Loading sessions...
-                  </p>
+                  <p className="text-muted-foreground text-sm">Loading sessions...</p>
                 ) : sessions && sessions.length > 0 ? (
                   <div className="space-y-3">
                     <p className="text-sm font-medium">Your sessions</p>
 
-                    {/* Active sessions */}
                     {activeSessions.map((session) => (
                       <div
                         key={session.id}
@@ -204,20 +181,14 @@ export default function TaskDetailPage() {
                             {session.title ?? "Untitled session"}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Started{" "}
-                            {new Date(session.created_at).toLocaleDateString()}
+                            Started {new Date(session.created_at).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
                             Active
                           </span>
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              router.push(`/chat/${session.id}`)
-                            }
-                          >
+                          <Button size="sm" onClick={() => router.push(`/chat/${session.id}`)}>
                             <MessageSquare className="w-4 h-4 mr-2" />
                             Continue
                           </Button>
@@ -225,7 +196,6 @@ export default function TaskDetailPage() {
                       </div>
                     ))}
 
-                    {/* Ended sessions */}
                     {endedSessions.map((session) => (
                       <div
                         key={session.id}
@@ -238,9 +208,7 @@ export default function TaskDetailPage() {
                           <p className="text-xs text-muted-foreground mt-0.5">
                             Ended{" "}
                             {session.ended_at
-                              ? new Date(
-                                  session.ended_at
-                                ).toLocaleDateString()
+                              ? new Date(session.ended_at).toLocaleDateString()
                               : "—"}
                           </p>
                         </div>
@@ -251,9 +219,7 @@ export default function TaskDetailPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() =>
-                              resumeSessionMutation.mutate(session.id)
-                            }
+                            onClick={() => resumeSessionMutation.mutate(session.id)}
                             disabled={resumeSessionMutation.isPending}
                           >
                             <RotateCcw className="w-4 h-4 mr-2" />
@@ -267,15 +233,13 @@ export default function TaskDetailPage() {
               </div>
             )}
 
-            {/* ===================== TEACHER VIEW ===================== */}
+            {/* TEACHER VIEW */}
             {isTeacher && (
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    router.push(`/tasks/${taskId}/edit`)
-                  }
+                  onClick={() => router.push(`/tasks/${taskId}/edit`)}
                 >
                   Edit task
                 </Button>

@@ -4,14 +4,21 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class ClassInfo(BaseModel):
+    id: UUID
+    name: str
+
+    model_config = {"from_attributes": True}
+
+
 class TaskResponse(BaseModel):
     id: UUID
     title: str
     description: Optional[str] = None
     due_date: Optional[datetime] = None
-    is_active: Optional[bool] = None
     course_id: UUID
 
-    model_config = {
-        "from_attributes": True
-    }
+    # Populated via service layer, not direct ORM relation
+    class_info: Optional[ClassInfo] = None
+
+    model_config = {"from_attributes": True}

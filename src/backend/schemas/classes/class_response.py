@@ -1,7 +1,14 @@
 from typing import Optional
 from uuid import UUID
-from datetime import datetime
 from pydantic import BaseModel
+
+
+class CourseInfo(BaseModel):
+    id: UUID
+    title: str
+
+    class Config:
+        from_attributes = True
 
 
 class ClassResponse(BaseModel):
@@ -10,6 +17,7 @@ class ClassResponse(BaseModel):
     name: str
     description: Optional[str]
     is_active: bool
+    course: Optional[CourseInfo] = None
 
     class Config:
         from_attributes = True

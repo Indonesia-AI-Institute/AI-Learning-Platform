@@ -1,7 +1,11 @@
 /**
  * task.types.ts
- * =============
  */
+
+export interface ClassInfo {
+  id: string;
+  name: string;
+}
 
 export interface Task {
   id: string;
@@ -9,4 +13,5 @@ export interface Task {
   description: string | null;
   due_date: string | null;
   course_id: string;
+  class_info?: ClassInfo | null;
 }

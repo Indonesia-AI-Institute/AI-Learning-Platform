@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import List
+from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from src.backend.repositories.task_repository import TaskRepository
 from src.backend.repositories.course_repository import CourseRepository
 from src.backend.repositories.class_repository import ClassRepository
 from src.backend.repositories.enrollment_repository import EnrollmentRepository
+from src.backend.schemas.task.task_response import TaskResponse, ClassInfo
 
 
 class TaskService:
@@ -21,13 +22,58 @@ class TaskService:
         self.enroll_repo = EnrollmentRepository(db)
 
     # =========================
+    # INTERNAL: Find enrolled class for student in a course
+    # FIX: replaces get_by_course_id which fails if course has multiple classes
+    # =========================
+
+    async def _get_enrolled_class(
+        self,
+        student_id: UUID,
+        course_id: UUID,
+    ):
+        classes = await self.class_repo.get_by_course(course_id=course_id)
+        for cls in classes:
+            enrollment = await self.enroll_repo.find(
+                student_id=student_id,
+                class_id=cls.id,
+            )
+            if enrollment:
+                return cls
+        return None
+
+    # =========================
+    # INTERNAL: Build TaskResponse with class info
+    # =========================
+
+    async def _build_response(
+        self,
+        task: Task,
+        class_id: Optional[UUID] = None,
+    ) -> TaskResponse:
+        class_info = None
+        if class_id:
+            cls = await self.class_repo.get(class_id)
+            if cls:
+                class_info = ClassInfo(id=cls.id, name=cls.name)
+
+        return TaskResponse(
+            id=task.id,
+            title=task.title,
+            description=task.description,
+            due_date=task.due_date,
+            course_id=task.course_id,
+            class_info=class_info,
+        )
+
+    # =========================
     # CREATE TASK (Teacher Only)
     # =========================
+
     async def create_task(
         self,
         current_user: User,
         course_id: UUID,
-        data: dict
+        data: dict,
     ) -> Task:
 
         if current_user.role != UserRole.TEACHER:
@@ -41,111 +87,89 @@ class TaskService:
             raise PermissionError("You do not own this course.")
 
         data["course_id"] = course_id
-
         return await self.task_repo.create(Task(**data))
 
     # =========================
     # GET TASKS BY COURSE
     # =========================
+
     async def get_tasks_by_course(
         self,
         current_user: User,
         course_id: UUID,
         skip: int = 0,
-        limit: int = 100
-    ) -> List[Task]:
+        limit: int = 100,
+    ) -> List[TaskResponse]:
 
         course = await self.course_repo.get(course_id)
         if not course:
             raise ValueError("Course not found.")
 
-        # Teacher owner
         if current_user.role == UserRole.TEACHER:
             if course.teacher_id != current_user.id:
                 raise PermissionError("Access denied.")
 
-            return await self.task_repo.get_by_course(
-                course_id,
-                skip,
-                limit
-            )
+            tasks = await self.task_repo.get_by_course(course_id, skip, limit)
+            # For teacher, find first class of course for display
+            classes = await self.class_repo.get_by_course(course_id=course_id)
+            class_id = classes[0].id if classes else None
+            return [await self._build_response(t, class_id) for t in tasks]
 
-        # Student must be enrolled in the class
-        cls = await self.class_repo.get_by_course_id(course.id)
+        # Student: find enrolled class
+        enrolled_cls = await self._get_enrolled_class(current_user.id, course.id)
+        if not enrolled_cls:
+            raise PermissionError("You are not enrolled in this course.")
 
-        if not cls:
-            raise ValueError("Class not found.")
-
-        enrollment = await self.enroll_repo.find(
-            student_id=current_user.id,
-            class_id=cls.id
-        )
-
-        if not enrollment:
-            raise PermissionError("You are not enrolled in this class.")
-
-        return await self.task_repo.get_by_course(
-            course_id,
-            skip,
-            limit
-        )
+        tasks = await self.task_repo.get_by_course(course_id, skip, limit)
+        return [await self._build_response(t, enrolled_cls.id) for t in tasks]
 
     # =========================
     # GET TASKS BY CLASS
     # =========================
+
     async def get_tasks_by_class(
         self,
         current_user: User,
         class_id: UUID,
         skip: int = 0,
-        limit: int = 100
-    ) -> List[Task]:
+        limit: int = 100,
+    ) -> List[TaskResponse]:
 
         cls = await self.class_repo.get(class_id)
-
         if not cls:
             raise ValueError("Class not found.")
 
         course = await self.course_repo.get(cls.course_id)
-
         if not course:
             raise ValueError("Course not found.")
 
-        # Teacher permission
         if current_user.role == UserRole.TEACHER:
-
             if course.teacher_id != current_user.id:
                 raise PermissionError("Access denied.")
 
-            return await self.task_repo.get_by_course(
-                course.id,
-                skip,
-                limit
-            )
+            tasks = await self.task_repo.get_by_course(course.id, skip, limit)
+            return [await self._build_response(t, class_id) for t in tasks]
 
-        # Student permission
+        # Student
         enrollment = await self.enroll_repo.find(
             student_id=current_user.id,
-            class_id=class_id
+            class_id=class_id,
         )
-
         if not enrollment:
             raise PermissionError("You are not enrolled in this class.")
 
-        return await self.task_repo.get_by_course(
-            course.id,
-            skip,
-            limit
-        )
+        tasks = await self.task_repo.get_by_course(course.id, skip, limit)
+        return [await self._build_response(t, class_id) for t in tasks]
 
     # =========================
     # TASK DETAIL
     # =========================
+
     async def get_task_detail(
         self,
         current_user: User,
-        task_id: UUID
-    ) -> Task:
+        task_id: UUID,
+    ) -> TaskResponse:
 
         task = await self.task_repo.get(task_id)
         if not task:
@@ -153,34 +177,30 @@ class TaskService:
 
         course = await self.course_repo.get(task.course_id)
 
-        # Teacher owner
         if current_user.role == UserRole.TEACHER:
             if course.teacher_id != current_user.id:
                 raise PermissionError("Access denied.")
-            return task
 
-        # Student must be enrolled
-        cls = await self.class_repo.get_by_course_id(course.id)
-        if not cls:
-            raise ValueError("Class not found.")
-        enrollment = await self.enroll_repo.find(
-            student_id=current_user.id,
-            class_id=cls.id
-        )
+            classes = await self.class_repo.get_by_course(course_id=course.id)
+            class_id = classes[0].id if classes else None
+            return await self._build_response(task, class_id)
 
-        if not enrollment:
+        # Student: find enrolled class for this course
+        enrolled_cls = await self._get_enrolled_class(current_user.id, course.id)
+        if not enrolled_cls:
             raise PermissionError("Access denied.")
 
-        return task
+        return await self._build_response(task, enrolled_cls.id)
 
     # =========================
     # UPDATE TASK (Teacher Only)
     # =========================
+
     async def update_task(
         self,
         current_user: User,
         task_id: UUID,
-        data: dict
+        data: dict,
     ) -> Task:
 
         task = await self.task_repo.get(task_id)
@@ -188,7 +208,6 @@ class TaskService:
             raise ValueError("Task not found.")
 
         course = await self.course_repo.get(task.course_id)
-
         if course.teacher_id != current_user.id:
             raise PermissionError("You do not own this task.")
 
@@ -197,10 +216,11 @@ class TaskService:
     # =========================
     # DELETE TASK (Teacher Only)
     # =========================
+
     async def delete_task(
         self,
         current_user: User,
-        task_id: UUID
+        task_id: UUID,
     ):
 
         task = await self.task_repo.get(task_id)
@@ -208,7 +228,6 @@ class TaskService:
             raise ValueError("Task not found.")
 
         course = await self.course_repo.get(task.course_id)
-
         if course.teacher_id != current_user.id:
             raise PermissionError("You do not own this task.")
 

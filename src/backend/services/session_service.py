@@ -49,17 +49,27 @@ class SessionService:
         if not db_course:
             raise ValueError("Course not found.")
 
-        db_class = await self.class_repo.get_by_course_id(db_course.id)
-        if not db_class:
-            raise ValueError("Class not found.")
+        # FIX: get all classes for this course, then find one the student is enrolled in
+        # instead of get_by_course_id which fails if course has multiple classes
+        classes = await self.class_repo.get_by_course(course_id=db_course.id)
+        if not classes:
+            raise ValueError("No classes found for this course.")
 
-        enrollments = await self.enrollment_repo.filter_by(
-            student_id=current_user.id,
-            class_id=db_class.id,
-        )
+        class_ids = [cls.id for cls in classes]
 
-        if not enrollments:
-            raise PermissionError("You are not enrolled in this class.")
+        # Find enrollment for this student in any of the course's classes
+        enrolled_class = None
+        for class_id in class_ids:
+            enrollments = await self.enrollment_repo.filter_by(
+                student_id=current_user.id,
+                class_id=class_id,
+            )
+            if enrollments:
+                enrolled_class = class_id
+                break
+
+        if not enrolled_class:
+            raise PermissionError("You are not enrolled in this course.")
 
         new_session = ChatSession(
             student_id=current_user.id,
@@ -92,8 +102,6 @@ class SessionService:
 
     # =========================
     # GET SESSIONS BY TASK (Student)
-    # Digunakan di halaman task detail untuk list session
-    # dan tombol resume
     # =========================
 
     async def get_sessions_by_task(
@@ -111,7 +119,6 @@ class SessionService:
         if not db_task:
             raise ValueError("Task not found.")
 
-        # Filter by both student and task
         return await self.session_repo.get_by_student_and_task(
             student_id=current_user.id,
             task_id=task_id,
@@ -209,7 +216,6 @@ class SessionService:
         # TODO: RAG context injection
         # Saat RAG sudah tersedia, inject summary dari chat history
         # sebagai context awal LLM sebelum session di-reactivate.
-        # Contoh: await rag_service.build_session_summary(session_id)
 
         return await self.session_repo.update(
             db_session,

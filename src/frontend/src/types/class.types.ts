@@ -1,7 +1,11 @@
 /**
  * class.types.ts
- * ==============
  */
+
+export interface CourseInfo {
+  id: string;
+  title: string;
+}
 
 export interface Class {
   id: string;
@@ -9,4 +13,5 @@ export interface Class {
   name: string;
   description: string | null;
   is_active: boolean;
+  course?: CourseInfo;
 }

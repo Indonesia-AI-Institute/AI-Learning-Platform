@@ -17,7 +17,9 @@ from src.backend.api.deps import (
     get_current_user,
     get_chat_service,
 )
-
+from src.backend.services.prompt_classification_service import PromptClassificationService
+from src.backend.llm.services.llm_service import LLMService
+from src.backend.api.deps import get_llm_service
 from src.backend.services.session_service import SessionService
 from src.backend.services.chat_history_service import ChatHistoryService
 from src.backend.services.chat_service import ChatService
@@ -45,14 +47,18 @@ def get_conversation_service(
     db: AsyncSession = Depends(get_db),
     chat_service: ChatService = Depends(get_chat_service),
 ) -> ConversationService:
-
+ 
     session_service = SessionService(db)
     history_service = ChatHistoryService(db)
-
+    classification_service = PromptClassificationService(db)
+    llm_service = LLMService()
+ 
     return ConversationService(
         session_service=session_service,
         history_service=history_service,
         chat_service=chat_service,
+        classification_service=classification_service,
+        llm_service=llm_service,
     )
 
 

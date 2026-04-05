@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.backend.llm.services.llm_service import LLMService
 from src.backend.agents.registry.agent_registry import AgentRegistry
 from src.backend.services.chat_service import ChatService
-
 from src.backend.db.session import get_db
 from src.backend.models.user import User, UserRole
 from src.backend.repositories.user_repository import UserRepository

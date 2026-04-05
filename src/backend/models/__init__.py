@@ -7,3 +7,4 @@ from .task import Task
 from .enrollment import Enrollment
 from .session_analytics import SessionAnalytics
 from .token_blacklist import TokenBlacklist
+from .prompt_classification import PromptClassification

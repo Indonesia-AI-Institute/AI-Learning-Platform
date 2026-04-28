@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -8,16 +8,12 @@ import { classService } from "@/services/class.service";
 import { courseService } from "@/services/course.service";
 import { taskService } from "@/services/task.service";
 import { analyticsService, PromptClassificationRow } from "@/services/analytics.service";
-import { BarChart2, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { BarChart2, ChevronRight, Search, Eye } from "lucide-react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 
 type FilterLevel = "class" | "course" | "task";
@@ -34,12 +30,28 @@ const PROMPT_COLS = [
   { key: "brainstorm_pct", label: "Brainstorm" },
 ];
 
-function ClassificationTable({ data }: { data: PromptClassificationRow[] }) {
+function ClassificationTable({
+  data,
+  onViewStudent,
+  selectedTaskId,
+}: {
+  data: PromptClassificationRow[];
+  onViewStudent: (studentId: string) => void;
+  selectedTaskId?: string;
+}) {
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!search) return data;
+    return data.filter((row) =>
+      (row.student_id ?? "").toLowerCase().includes(search.toLowerCase())
+    );
+  }, [data, search]);
+
   if (!data.length) return (
     <p className="text-sm text-muted-foreground py-8 text-center">No data yet.</p>
   );
 
-  // Chart data — average per prompt type across students
   const chartData = PROMPT_COLS.map((col) => ({
     name: col.label,
     avg: data.length
@@ -48,11 +60,13 @@ function ClassificationTable({ data }: { data: PromptClassificationRow[] }) {
   }));
 
   return (
-    <div className="space-y-6">
-      {/* Bar chart */}
+    <div className="space-y-5">
+      {/* Chart */}
       <div className="border rounded-lg p-4">
-        <p className="text-sm font-medium mb-3">Average prompt distribution across {data.length} student(s)</p>
-        <ResponsiveContainer width="100%" height={200}>
+        <p className="text-sm font-medium mb-3">
+          Average distribution — {data.length} student(s)
+        </p>
+        <ResponsiveContainer width="100%" height={180}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -63,22 +77,34 @@ function ClassificationTable({ data }: { data: PromptClassificationRow[] }) {
         </ResponsiveContainer>
       </div>
 
+      {/* Search student */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by student ID..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       {/* Table */}
       <div className="border rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-muted/50">
             <tr>
-              <th className="text-left px-3 py-3 font-medium text-muted-foreground whitespace-nowrap">Student ID</th>
+              <th className="text-left px-3 py-3 font-medium text-muted-foreground">Student</th>
               <th className="text-right px-3 py-3 font-medium text-muted-foreground">Prompts</th>
               {PROMPT_COLS.map((col) => (
                 <th key={col.key} className="text-right px-3 py-3 font-medium text-muted-foreground whitespace-nowrap">
                   {col.label}
                 </th>
               ))}
+              <th className="text-center px-3 py-3 font-medium text-muted-foreground">Chat</th>
             </tr>
           </thead>
           <tbody className="divide-y">
-            {data.map((row, idx) => (
+            {filtered.map((row, idx) => (
               <tr key={idx} className="hover:bg-muted/30">
                 <td className="px-3 py-2.5 font-mono text-muted-foreground">
                   {row.student_id ? row.student_id.slice(0, 8) + "..." : "—"}
@@ -89,6 +115,18 @@ function ClassificationTable({ data }: { data: PromptClassificationRow[] }) {
                     {((row as any)[col.key] ?? 0).toFixed(1)}%
                   </td>
                 ))}
+                <td className="px-3 py-2.5 text-center">
+                  {row.student_id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={() => onViewStudent(row.student_id!)}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -99,8 +137,12 @@ function ClassificationTable({ data }: { data: PromptClassificationRow[] }) {
 }
 
 export default function TeacherAnalyticsPage() {
+  const router = useRouter();
   const [filterLevel, setFilterLevel] = useState<FilterLevel>("class");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectorSearch, setSelectorSearch] = useState("");
 
   const { data: classes } = useQuery({
     queryKey: ["myClasses"],
@@ -112,32 +154,62 @@ export default function TeacherAnalyticsPage() {
     queryFn: () => courseService.getMyCourses(),
   });
 
-  // For task filter we need a class selected first
+  // For task filter: need a class selected
   const { data: tasks } = useQuery({
-    queryKey: ["tasksByClass", selectedId],
-    queryFn: () => taskService.getTasksByClass(selectedId!),
-    enabled: filterLevel === "task" && !!selectedId,
+    queryKey: ["tasksByClass", selectedClassId],
+    queryFn: () => taskService.getTasksByClass(selectedClassId!),
+    enabled: filterLevel === "task" && !!selectedClassId,
   });
+
+  // Determine active selected id
+  const activeId =
+    filterLevel === "class" ? selectedClassId :
+    filterLevel === "course" ? selectedCourseId :
+    selectedTaskId;
 
   const { data: classificationData, isLoading } = useQuery({
-    queryKey: ["classifications", filterLevel, selectedId],
+    queryKey: ["classifications", filterLevel, activeId],
     queryFn: async (): Promise<PromptClassificationRow[]> => {
-      if (!selectedId) return [];
-      if (filterLevel === "class") return analyticsService.getClassClassifications(selectedId);
-      if (filterLevel === "course") return analyticsService.getCourseClassifications(selectedId);
-      if (filterLevel === "task") return analyticsService.getTaskClassifications(selectedId);
+      if (!activeId) return [];
+      if (filterLevel === "class") return analyticsService.getClassClassifications(activeId);
+      if (filterLevel === "course") return analyticsService.getCourseClassifications(activeId);
+      if (filterLevel === "task") return analyticsService.getTaskClassifications(activeId);
       return [];
     },
-    enabled: !!selectedId,
+    enabled: !!activeId,
   });
 
-  const filterItems =
-    filterLevel === "class" ? classes :
-    filterLevel === "course" ? courses :
-    tasks ?? [];
+  // Items shown in selector list
+  const allItems =
+    filterLevel === "class" ? (classes ?? []) :
+    filterLevel === "course" ? (courses ?? []) :
+    (tasks ?? []);
 
-  const getItemLabel = (item: any) =>
-    item.name ?? item.title ?? item.id;
+  const filteredItems = useMemo(() => {
+    if (!selectorSearch) return allItems;
+    return allItems.filter((item: any) =>
+      (item.name ?? item.title ?? "").toLowerCase().includes(selectorSearch.toLowerCase())
+    );
+  }, [allItems, selectorSearch]);
+
+  const getItemLabel = (item: any) => item.name ?? item.title ?? item.id;
+
+  const handleSelectItem = (id: string) => {
+    if (filterLevel === "class") { setSelectedClassId(id); setSelectedTaskId(null); }
+    else if (filterLevel === "course") { setSelectedCourseId(id); setSelectedTaskId(null); }
+    else { setSelectedTaskId(id); }
+  };
+
+  const handleViewStudent = (studentId: string) => {
+    router.push(`/analytics/student/${studentId}`);
+  };
+
+  const handleLevelChange = (level: FilterLevel) => {
+    setFilterLevel(level);
+    setSelectorSearch("");
+    // Keep class selection when switching to task
+    if (level !== "task") setSelectedTaskId(null);
+  };
 
   return (
     <DashboardLayout title="Analytics">
@@ -155,7 +227,7 @@ export default function TeacherAnalyticsPage() {
           {(["class", "course", "task"] as FilterLevel[]).map((level) => (
             <button
               key={level}
-              onClick={() => { setFilterLevel(level); setSelectedId(null); }}
+              onClick={() => handleLevelChange(level)}
               className={`px-4 py-1.5 rounded-md text-sm capitalize transition-colors ${
                 filterLevel === level
                   ? "bg-primary text-primary-foreground"
@@ -167,36 +239,63 @@ export default function TeacherAnalyticsPage() {
           ))}
         </div>
 
+        {/* Task filter note */}
+        {filterLevel === "task" && !selectedClassId && (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+            <p className="text-sm text-yellow-800">
+              Select a class first from the <strong>By Class</strong> tab, then switch back to By Task to filter tasks.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
-          {/* Selector list */}
-          <div className="space-y-2">
+          {/* Selector */}
+          <div className="space-y-3">
             <p className="text-sm font-medium text-muted-foreground capitalize">
               Select {filterLevel}
             </p>
-            {!filterItems?.length ? (
-              <p className="text-xs text-muted-foreground">No {filterLevel}s found.</p>
+
+            {/* Search selector */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                placeholder={`Search ${filterLevel}...`}
+                value={selectorSearch}
+                onChange={(e) => setSelectorSearch(e.target.value)}
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
+
+            {!filteredItems.length ? (
+              <p className="text-xs text-muted-foreground">
+                {filterLevel === "task" && !selectedClassId
+                  ? "Select a class first"
+                  : `No ${filterLevel}s found`}
+              </p>
             ) : (
-              filterItems.map((item: any) => (
-                <button
-                  key={item.id}
-                  onClick={() => setSelectedId(item.id)}
-                  className={`w-full text-left border rounded-lg p-3 text-sm transition-colors hover:bg-muted/50 ${
-                    selectedId === item.id ? "border-primary bg-primary/5" : ""
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium truncate">{getItemLabel(item)}</span>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                  </div>
-                </button>
-              ))
+              <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                {filteredItems.map((item: any) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelectItem(item.id)}
+                    className={`w-full text-left border rounded-lg p-2.5 text-sm transition-colors hover:bg-muted/50 ${
+                      activeId === item.id ? "border-primary bg-primary/5" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium truncate text-xs">{getItemLabel(item)}</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
           {/* Analytics panel */}
           <div className="lg:col-span-3">
-            {!selectedId ? (
+            {!activeId ? (
               <div className="flex flex-col items-center justify-center py-16 text-center border rounded-lg h-full">
                 <BarChart2 className="w-10 h-10 text-muted-foreground mb-3" />
                 <p className="font-medium">Select a {filterLevel}</p>
@@ -207,10 +306,13 @@ export default function TeacherAnalyticsPage() {
             ) : isLoading ? (
               <p className="text-muted-foreground text-sm">Loading...</p>
             ) : (
-              <ClassificationTable data={classificationData ?? []} />
+              <ClassificationTable
+                data={classificationData ?? []}
+                onViewStudent={handleViewStudent}
+                selectedTaskId={selectedTaskId ?? undefined}
+              />
             )}
           </div>
-
         </div>
       </div>
     </DashboardLayout>

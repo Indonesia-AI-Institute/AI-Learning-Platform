@@ -24,11 +24,11 @@ export default function ChatSessionsPage() {
   const endedSessions = sessions?.filter((s) => !s.is_active) ?? [];
 
   return (
-    <DashboardLayout title="Chat Sessions">
+    <DashboardLayout title="Chat History">
       <div className="space-y-6">
 
         <div>
-          <h2 className="text-2xl font-semibold">Chat Sessions</h2>
+          <h2 className="text-2xl font-semibold">Chat History</h2>
           <p className="text-muted-foreground text-sm mt-1">
             All your AI chat sessions
           </p>

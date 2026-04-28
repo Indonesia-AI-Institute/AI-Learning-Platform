@@ -8,7 +8,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { courseService } from "@/services/course.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BookOpen, Plus, Search } from "lucide-react";
+import { BookOpen, Plus, Search, User } from "lucide-react";
 
 export default function CoursesPage() {
   const router = useRouter();
@@ -29,13 +29,10 @@ export default function CoursesPage() {
     return courses.filter((c) => {
       const matchSearch =
         c.title.toLowerCase().includes(search.toLowerCase()) ||
-        (c.description ?? "").toLowerCase().includes(search.toLowerCase());
+        (c.description ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (c.teacher?.full_name ?? "").toLowerCase().includes(search.toLowerCase());
       const matchStatus =
-        filterStatus === "all"
-          ? true
-          : filterStatus === "active"
-          ? c.is_active
-          : !c.is_active;
+        filterStatus === "all" ? true : filterStatus === "active" ? c.is_active : !c.is_active;
       return matchSearch && matchStatus;
     });
   }, [courses, search, filterStatus]);
@@ -53,8 +50,7 @@ export default function CoursesPage() {
           </div>
           {isTeacher && (
             <Button onClick={() => router.push("/courses/create")} size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              New course
+              <Plus className="w-4 h-4 mr-2" />New course
             </Button>
           )}
         </div>
@@ -64,7 +60,7 @@ export default function CoursesPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search courses..."
+              placeholder={isTeacher ? "Search courses..." : "Search by course or teacher name..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -76,9 +72,7 @@ export default function CoursesPage() {
                 key={status}
                 onClick={() => setFilterStatus(status)}
                 className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors ${
-                  filterStatus === status
-                    ? "bg-primary text-primary-foreground"
-                    : "border hover:bg-muted"
+                  filterStatus === status ? "bg-primary text-primary-foreground" : "border hover:bg-muted"
                 }`}
               >
                 {status}
@@ -107,17 +101,20 @@ export default function CoursesPage() {
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium">{course.title}</p>
                   <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                    course.is_active
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-500"
+                    course.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
                   }`}>
                     {course.is_active ? "Active" : "Inactive"}
                   </span>
                 </div>
                 {course.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {course.description}
-                  </p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{course.description}</p>
+                )}
+                {/* Teacher name — only shown for student */}
+                {!isTeacher && course.teacher && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <User className="w-3 h-3" />
+                    {course.teacher.full_name}
+                  </div>
                 )}
                 <p className="text-xs text-muted-foreground">
                   {new Date(course.created_at).toLocaleDateString()}

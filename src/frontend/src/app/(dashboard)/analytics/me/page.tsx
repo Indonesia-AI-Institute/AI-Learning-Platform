@@ -105,25 +105,23 @@ export default function MyAnalyticsPage() {
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Prompt Type</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Meaning</th>
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground">%</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {[
-                    { key: "direct_answer_pct", label: "Direct Answer", meaning: "Give me the answer" },
-                    { key: "explanation_pct", label: "Explanation", meaning: "Explain this concept" },
-                    { key: "step_by_step_pct", label: "Step-by-Step", meaning: "Show the steps" },
-                    { key: "example_pct", label: "Example", meaning: "Give similar example" },
-                    { key: "rewrite_pct", label: "Rewrite", meaning: "Rewrite my answer" },
-                    { key: "feedback_pct", label: "Feedback", meaning: "Check my answer" },
-                    { key: "summary_pct", label: "Summary", meaning: "Summarize material" },
-                    { key: "translation_pct", label: "Translation", meaning: "Translate" },
-                    { key: "brainstorm_pct", label: "Brainstorm", meaning: "Ideas" },
+                    { key: "direct_answer_pct", label: "Direct Answer"},
+                    { key: "explanation_pct", label: "Explanation"},
+                    { key: "step_by_step_pct", label: "Step-by-Step" },
+                    { key: "example_pct", label: "Example" },
+                    { key: "rewrite_pct", label: "Rewrite" },
+                    { key: "feedback_pct", label: "Feedback" },
+                    { key: "summary_pct", label: "Summary" },
+                    { key: "translation_pct", label: "Translation"},
+                    { key: "brainstorm_pct", label: "Brainstorm"},
                   ].map((row) => (
                     <tr key={row.key} className="hover:bg-muted/30">
                       <td className="px-4 py-2.5 font-medium">{row.label}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground text-xs">{row.meaning}</td>
                       <td className="px-4 py-2.5 text-right font-mono">
                         {((classification as any)[row.key] ?? 0).toFixed(1)}%
                       </td>

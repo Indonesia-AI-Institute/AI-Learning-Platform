@@ -3,7 +3,8 @@
  */
 
 import api from "@/lib/api";
-import { StudentAnalytics, ClassAnalyticsResponse } from "@/types/analytics.types";
+import { StudentAnalytics } from "@/types/analytics.types";
+import { ChatSession, ChatHistoryResponse } from "@/types/chat.types";
 
 export interface PromptClassificationRow {
   student_id?: string;
@@ -20,6 +21,7 @@ export interface PromptClassificationRow {
 }
 
 export const analyticsService = {
+  // ---- Student ----
   getMyAnalytics: async (): Promise<StudentAnalytics> => {
     const response = await api.get<StudentAnalytics>("/analytics/me");
     return response.data;
@@ -30,11 +32,7 @@ export const analyticsService = {
     return response.data.data;
   },
 
-  getClassAnalytics: async (classId: string): Promise<ClassAnalyticsResponse> => {
-    const response = await api.get<ClassAnalyticsResponse>(`/analytics/class/${classId}`);
-    return response.data;
-  },
-
+  // ---- Teacher: classification ----
   getClassClassifications: async (classId: string): Promise<PromptClassificationRow[]> => {
     const response = await api.get<{ students: PromptClassificationRow[] }>(`/analytics/class/${classId}/classifications`);
     return response.data.students;
@@ -53,5 +51,17 @@ export const analyticsService = {
   getStudentClassifications: async (studentId: string): Promise<PromptClassificationRow[]> => {
     const response = await api.get<{ data: PromptClassificationRow[] }>(`/analytics/student/${studentId}/classifications`);
     return response.data.data;
+  },
+
+  // ---- Teacher: chat history ----
+  getStudentSessions: async (studentId: string, taskId?: string): Promise<ChatSession[]> => {
+    const params = taskId ? `?task_id=${taskId}` : "";
+    const response = await api.get<ChatSession[]>(`/chat/teacher/student/${studentId}/sessions${params}`);
+    return response.data;
+  },
+
+  getSessionHistory: async (sessionId: string): Promise<ChatHistoryResponse> => {
+    const response = await api.get<ChatHistoryResponse>(`/chat/teacher/sessions/${sessionId}/history`);
+    return response.data;
   },
 };

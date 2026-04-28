@@ -1,23 +1,16 @@
 "use client";
 
-/**
- * useChat.ts
- * ==========
- * Hook untuk handle chat SSE streaming.
- * Manages local message state dan streaming tokens.
- */
-
-import { useState, useCallback, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChatMessage } from "@/types/chat.types";
-import api from "@/lib/api";
 
 interface UseChatOptions {
   sessionId: string;
   initialMessages?: ChatMessage[];
+  isSessionActive?: boolean;
 }
 
-export function useChat({ sessionId, initialMessages = [] }: UseChatOptions) {
+export function useChat({ sessionId, initialMessages = [], isSessionActive = true }: UseChatOptions) {
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [streamingContent, setStreamingContent] = useState<string>("");
@@ -25,13 +18,30 @@ export function useChat({ sessionId, initialMessages = [] }: UseChatOptions) {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Auto-end session when component unmounts (student navigates away)
+  useEffect(() => {
+    return () => {
+      if (isSessionActive) {
+        // Fire-and-forget: auto-end session on unmount
+        fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${sessionId}/auto-end`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            keepalive: true, // ensure request completes even if page unloads
+          }
+        ).catch(() => {});
+      }
+    };
+  }, [sessionId, isSessionActive]);
+
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || isStreaming) return;
 
       setError(null);
 
-      // Add user message to UI immediately
       const userMessage: ChatMessage = {
         role: "user",
         content,
@@ -41,20 +51,16 @@ export function useChat({ sessionId, initialMessages = [] }: UseChatOptions) {
       setIsStreaming(true);
       setStreamingContent("");
 
-      // Abort any previous stream
-      if (abortRef.current) {
-        abortRef.current.abort();
-      }
+      if (abortRef.current) abortRef.current.abort();
       abortRef.current = new AbortController();
 
       try {
-        // Use fetch for SSE with POST body (EventSource only supports GET)
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${sessionId}/stream`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            credentials: "include", // send httpOnly cookie
+            credentials: "include",
             body: JSON.stringify({
               messages: [{ role: "user", content }],
             }),
@@ -62,13 +68,10 @@ export function useChat({ sessionId, initialMessages = [] }: UseChatOptions) {
           }
         );
 
-        if (!response.ok) {
-          throw new Error(`Stream error: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`Stream error: ${response.status}`);
 
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
-
         if (!reader) throw new Error("No response body");
 
         let fullContent = "";
@@ -79,18 +82,14 @@ export function useChat({ sessionId, initialMessages = [] }: UseChatOptions) {
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-
-          // Parse SSE lines
           const lines = buffer.split("\n");
           buffer = lines.pop() ?? "";
 
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
-
             const data = line.slice(6).trim();
 
             if (data === "[DONE]") {
-              // Stream complete — add final assistant message
               setMessages((prev) => [
                 ...prev,
                 {
@@ -101,14 +100,10 @@ export function useChat({ sessionId, initialMessages = [] }: UseChatOptions) {
               ]);
               setStreamingContent("");
               setIsStreaming(false);
-              // Invalidate history cache
-              queryClient.invalidateQueries({
-                queryKey: ["chatHistory", sessionId],
-              });
+              queryClient.invalidateQueries({ queryKey: ["chatHistory", sessionId] });
               return;
             }
 
-            // Append token
             fullContent += data;
             setStreamingContent(fullContent);
           }

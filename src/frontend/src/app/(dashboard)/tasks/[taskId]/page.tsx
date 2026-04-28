@@ -10,14 +10,7 @@ import { chatService } from "@/services/chat.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  ArrowLeft,
-  MessageSquare,
-  Plus,
-  RotateCcw,
-  Calendar,
-  Users,
-} from "lucide-react";
+import { ArrowLeft, MessageSquare, Plus, RotateCcw, Calendar, Users, Trash2 } from "lucide-react";
 
 export default function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -28,6 +21,7 @@ export default function TaskDetailPage() {
 
   const [newSessionTitle, setNewSessionTitle] = useState("");
   const [showTitleInput, setShowTitleInput] = useState(false);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
 
   const { data: task, isLoading: loadingTask } = useQuery({
     queryKey: ["task", taskId],
@@ -41,10 +35,7 @@ export default function TaskDetailPage() {
   });
 
   const createSessionMutation = useMutation({
-    mutationFn: () =>
-      chatService.createSession(taskId, {
-        title: newSessionTitle.trim() || undefined,
-      }),
+    mutationFn: () => chatService.createSession(taskId, { title: newSessionTitle.trim() || undefined }),
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: ["sessionsByTask", taskId] });
       router.push(`/chat/${session.id}`);
@@ -56,6 +47,14 @@ export default function TaskDetailPage() {
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: ["sessionsByTask", taskId] });
       router.push(`/chat/${session.id}`);
+    },
+  });
+
+  const deleteSessionMutation = useMutation({
+    mutationFn: (sessionId: string) => chatService.deleteSession(sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessionsByTask", taskId] });
+      setDeletingSessionId(null);
     },
   });
 
@@ -75,25 +74,16 @@ export default function TaskDetailPage() {
     <DashboardLayout title={task?.title ?? "Task Detail"}>
       <div className="max-w-2xl space-y-6">
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.back()}
-          className="text-muted-foreground -ml-2"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
+        <Button variant="ghost" size="sm" onClick={() => router.back()} className="text-muted-foreground -ml-2">
+          <ArrowLeft className="w-4 h-4 mr-2" />Back
         </Button>
 
         {loadingTask ? (
           <p className="text-muted-foreground text-sm">Loading...</p>
         ) : (
           <>
-            {/* Task info */}
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold">{task?.title}</h2>
-
-              {/* Class info badge */}
               {task?.class_info && (
                 <div
                   className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full cursor-pointer hover:bg-muted/80"
@@ -103,10 +93,7 @@ export default function TaskDetailPage() {
                   {task.class_info.name}
                 </div>
               )}
-
-              {task?.description && (
-                <p className="text-muted-foreground text-sm">{task.description}</p>
-              )}
+              {task?.description && <p className="text-muted-foreground text-sm">{task.description}</p>}
               {task?.due_date && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Calendar className="w-3.5 h-3.5" />
@@ -118,21 +105,15 @@ export default function TaskDetailPage() {
             {/* STUDENT VIEW */}
             {!isTeacher && (
               <div className="space-y-4">
-
                 {activeSessions.length > 0 && (
                   <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
-                    <p className="text-sm text-yellow-800 font-medium">
-                      You have an active session
-                    </p>
-                    <p className="text-xs text-yellow-700 mt-0.5">
-                      Continue your ongoing session below.
-                    </p>
+                    <p className="text-sm text-yellow-800 font-medium">You have an active session</p>
+                    <p className="text-xs text-yellow-700 mt-0.5">Continue your ongoing session below.</p>
                   </div>
                 )}
 
                 <div className="border rounded-lg p-4 space-y-3">
                   <p className="text-sm font-medium">Start a new session</p>
-
                   {showTitleInput && (
                     <div className="space-y-2">
                       <Label htmlFor="session-title">Session title (optional)</Label>
@@ -145,22 +126,13 @@ export default function TaskDetailPage() {
                       />
                     </div>
                   )}
-
                   <div className="flex gap-2">
-                    <Button
-                      onClick={handleStartChat}
-                      disabled={createSessionMutation.isPending}
-                      size="sm"
-                    >
+                    <Button onClick={handleStartChat} disabled={createSessionMutation.isPending} size="sm">
                       <Plus className="w-4 h-4 mr-2" />
-                      {showTitleInput
-                        ? createSessionMutation.isPending ? "Starting..." : "Start session"
-                        : "New session"}
+                      {showTitleInput ? (createSessionMutation.isPending ? "Starting..." : "Start session") : "New session"}
                     </Button>
                     {showTitleInput && (
-                      <Button variant="ghost" size="sm" onClick={() => setShowTitleInput(false)}>
-                        Cancel
-                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setShowTitleInput(false)}>Cancel</Button>
                     )}
                   </div>
                 </div>
@@ -172,59 +144,66 @@ export default function TaskDetailPage() {
                     <p className="text-sm font-medium">Your sessions</p>
 
                     {activeSessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className="flex items-center justify-between border rounded-lg p-3 bg-green-50 border-green-200"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">
-                            {session.title ?? "Untitled session"}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Started {new Date(session.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                            Active
-                          </span>
-                          <Button size="sm" onClick={() => router.push(`/chat/${session.id}`)}>
-                            <MessageSquare className="w-4 h-4 mr-2" />
-                            Continue
-                          </Button>
+                      <div key={session.id} className="border rounded-lg p-3 bg-green-50 border-green-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">{session.title ?? "Untitled session"}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Started {new Date(session.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Active</span>
+                            <Button size="sm" onClick={() => router.push(`/chat/${session.id}`)}>
+                              <MessageSquare className="w-4 h-4 mr-2" />Continue
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
 
                     {endedSessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className="flex items-center justify-between border rounded-lg p-3"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">
-                            {session.title ?? "Untitled session"}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Ended{" "}
-                            {session.ended_at
-                              ? new Date(session.ended_at).toLocaleDateString()
-                              : "—"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                            Ended
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => resumeSessionMutation.mutate(session.id)}
-                            disabled={resumeSessionMutation.isPending}
-                          >
-                            <RotateCcw className="w-4 h-4 mr-2" />
-                            Resume
-                          </Button>
+                      <div key={session.id} className="border rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">{session.title ?? "Untitled session"}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Ended {session.ended_at ? new Date(session.ended_at).toLocaleDateString() : "—"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Ended</span>
+                            <Button
+                              size="sm" variant="outline"
+                              onClick={() => resumeSessionMutation.mutate(session.id)}
+                              disabled={resumeSessionMutation.isPending}
+                            >
+                              <RotateCcw className="w-4 h-4 mr-2" />Resume
+                            </Button>
+                            {deletingSessionId === session.id ? (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm" variant="destructive"
+                                  onClick={() => deleteSessionMutation.mutate(session.id)}
+                                  disabled={deleteSessionMutation.isPending}
+                                  className="h-8 px-2 text-xs"
+                                >
+                                  {deleteSessionMutation.isPending ? "..." : "Delete"}
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => setDeletingSessionId(null)} className="h-8 px-2">
+                                  Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm" variant="ghost"
+                                onClick={() => setDeletingSessionId(session.id)}
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -236,11 +215,7 @@ export default function TaskDetailPage() {
             {/* TEACHER VIEW */}
             {isTeacher && (
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push(`/tasks/${taskId}/edit`)}
-                >
+                <Button variant="outline" size="sm" onClick={() => router.push(`/tasks/${taskId}/edit`)}>
                   Edit task
                 </Button>
               </div>

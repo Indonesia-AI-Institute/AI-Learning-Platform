@@ -244,3 +244,24 @@ class SessionService:
             skip=skip,
             limit=limit,
         )
+    # =========================
+    # DELETE SESSION (Student Only)
+    # =========================
+ 
+    async def delete_session(
+        self,
+        current_user: User,
+        session_id: UUID,
+    ) -> None:
+ 
+        db_session = await self.session_repo.get(session_id)
+        if not db_session:
+            raise ValueError("Session not found.")
+ 
+        if current_user.role != UserRole.STUDENT:
+            raise PermissionError("Only students can delete sessions.")
+ 
+        if db_session.student_id != current_user.id:
+            raise PermissionError("You do not own this session.")
+ 
+        await self.session_repo.delete(session_id)

@@ -1,14 +1,5 @@
 "use client";
 
-/**
- * app/(dashboard)/chat/[sessionId]/page.tsx
- * ==========================================
- * Main chat room page.
- * - Load history on mount
- * - SSE streaming
- * - End session
- */
-
 import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
@@ -17,7 +8,8 @@ import { useChat } from "@/hooks/useChat";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { StreamingMessage } from "@/components/chat/StreamingMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { ChatHeader } from "@/components/chat/ChatHeader";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 export default function ChatRoomPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -25,8 +17,7 @@ export default function ChatRoomPage() {
   const queryClient = useQueryClient();
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Fetch session detail
-  const { data: session, isLoading: loadingSession } = useQuery({
+  const { data: session } = useQuery({
     queryKey: ["session", sessionId],
     queryFn: async () => {
       const sessions = await chatService.getMySessions();
@@ -34,7 +25,6 @@ export default function ChatRoomPage() {
     },
   });
 
-  // Fetch history
   const { data: history, isLoading: loadingHistory } = useQuery({
     queryKey: ["chatHistory", sessionId],
     queryFn: () => chatService.getHistory(sessionId),
@@ -51,34 +41,20 @@ export default function ChatRoomPage() {
   } = useChat({
     sessionId,
     initialMessages: history?.messages ?? [],
+    isSessionActive: session?.is_active ?? true,
   });
 
-  // Sync history into chat state when loaded
   useEffect(() => {
-    if (history?.messages) {
-      resetMessages(history.messages);
-    }
+    if (history?.messages) resetMessages(history.messages);
   }, [history, resetMessages]);
 
-  // Auto scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent]);
 
-  // End session
-  const endMutation = useMutation({
-    mutationFn: () => chatService.endSession(sessionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
-      queryClient.invalidateQueries({ queryKey: ["sessionsByTask"] });
-      router.back();
-    },
-  });
-
-  const isLoading = loadingSession || loadingHistory;
   const isSessionActive = session?.is_active ?? false;
 
-  if (isLoading) {
+  if (loadingHistory) {
     return (
       <div className="flex h-screen items-center justify-center">
         <p className="text-muted-foreground text-sm">Loading session...</p>
@@ -86,23 +62,30 @@ export default function ChatRoomPage() {
     );
   }
 
-  if (!session) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-muted-foreground text-sm">Session not found.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-screen bg-background">
 
-      {/* Header */}
-      <ChatHeader
-        session={session}
-        onEndSession={() => endMutation.mutate()}
-        isEnding={endMutation.isPending}
-      />
+      {/* Header — simplified, no end button */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b bg-background">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.back()}
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm truncate">
+            {session?.title ?? "Untitled session"}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${isSessionActive ? "bg-green-500" : "bg-gray-400"}`} />
+            <span className="text-xs text-muted-foreground">
+              {isSessionActive ? "Active" : "Ended — read only"}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
@@ -141,9 +124,8 @@ export default function ChatRoomPage() {
         disabled={!isSessionActive}
       />
 
-      {/* Ended session notice */}
       {!isSessionActive && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-3">
           <p className="text-xs text-center text-muted-foreground">
             This session has ended. Go back to the task to resume.
           </p>

@@ -16,7 +16,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-type FilterLevel = "class" | "course" | "task";
+type FilterLevel = "course" | "class" | "task";
 
 const PROMPT_COLS = [
   { key: "direct_answer_pct", label: "Direct" },
@@ -224,7 +224,7 @@ export default function TeacherAnalyticsPage() {
 
         {/* Filter level tabs */}
         <div className="flex gap-2 border-b pb-3">
-          {(["class", "course", "task"] as FilterLevel[]).map((level) => (
+          {(["course", "class", "task"] as FilterLevel[]).map((level) => (
             <button
               key={level}
               onClick={() => handleLevelChange(level)}

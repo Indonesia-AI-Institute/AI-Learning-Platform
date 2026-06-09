@@ -78,6 +78,13 @@ export function TeacherDashboard({ fullName }: { fullName: string }) {
           <Button
             size="sm"
             variant="outline"
+            onClick={() => router.push("/tasks/create")}
+          >
+            Create task
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => router.push("/analytics")}
           >
             View analytics

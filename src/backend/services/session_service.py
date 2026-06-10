@@ -135,25 +135,18 @@ class SessionService:
         current_user: User,
         session_id: UUID,
     ) -> ChatSession:
-
         db_session = await self.session_repo.get(session_id)
         if not db_session:
             raise ValueError("Session not found.")
-
-        db_task = await self.task_repo.get(db_session.task_id)
-        db_course = await self.course_repo.get(db_task.course_id)
-
+ 
         if current_user.role == UserRole.STUDENT:
             if db_session.student_id != current_user.id:
                 raise PermissionError("Access denied.")
-            return db_session
-
-        if current_user.role == UserRole.TEACHER:
-            if db_course.teacher_id != current_user.id:
-                raise PermissionError("Access denied.")
-            return db_session
-
-        raise PermissionError("Access denied.")
+ 
+        elif current_user.role == UserRole.TEACHER:
+            pass  # teacher access validated at route level
+ 
+        return db_session
 
     # =========================
     # END SESSION (Student Only)

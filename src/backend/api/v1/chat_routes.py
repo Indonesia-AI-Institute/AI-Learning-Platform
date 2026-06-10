@@ -308,6 +308,53 @@ async def resume_chat_session(
         raise HTTPException(status_code=403, detail=str(e))
 
 
+"""
+PATCH — chat_routes.py
+======================
+Tambahkan endpoint ini ke chat_routes.py.
+Letakkan SEBELUM route /sessions/{session_id}/history dan /sessions/{session_id}/stream
+agar tidak konflik urutan route FastAPI.
+
+URUTAN ROUTE yang benar di chat_routes.py:
+  POST   /sessions/task/{task_id}          ← create session
+  GET    /sessions/my                      ← get my sessions
+  GET    /sessions/task/{task_id}          ← get by task
+  GET    /sessions/{session_id}            ← get single (BARU, tambahkan di sini)
+  GET    /sessions/{session_id}/history    ← get history
+  POST   /sessions/{session_id}/stream     ← stream chat
+  POST   /sessions/{session_id}/end
+  POST   /sessions/{session_id}/resume
+  POST   /sessions/{session_id}/auto-end
+  DELETE /sessions/{session_id}
+"""
+
+# =========================================================
+# GET SINGLE SESSION BY ID (Student)
+# =========================================================
+
+@router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
+async def get_session_by_id(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
+):
+    """
+    Student: fetch detail satu session by ID.
+    Dipakai oleh chat room page agar tidak perlu getMySessions().find().
+    """
+    session_service = SessionService(db)
+
+    try:
+        session = await session_service.get_session_detail(
+            current_user=current_user,
+            session_id=session_id,
+        )
+        return session
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
 # =========================================================
 # GET CHAT HISTORY (Student)
 # =========================================================

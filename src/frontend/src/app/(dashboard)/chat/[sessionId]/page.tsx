@@ -17,18 +17,64 @@ export default function ChatRoomPage() {
   const queryClient = useQueryClient();
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { data: session } = useQuery({
+  // Guard: resume hanya dipanggil sekali per component instance
+  const resumeCalledRef = useRef(false);
+
+  // ── 1. Fetch session langsung by ID — bukan lewat getMySessions()
+  const {
+    data: session,
+    isLoading: loadingSession,
+    isError: sessionError,
+  } = useQuery({
     queryKey: ["session", sessionId],
-    queryFn: async () => {
-      const sessions = await chatService.getMySessions();
-      return sessions.find((s) => s.id === sessionId) ?? null;
+    queryFn: () => chatService.getSessionById(sessionId),
+    staleTime: 0,
+    retry: 2,
+    retryDelay: 500,
+  });
+
+  // ── 2. Resume mutation
+  const resumeMutation = useMutation({
+    mutationFn: () => chatService.resumeSession(sessionId),
+    onSuccess: (resumed) => {
+      // Update cache dengan session yang sudah active
+      queryClient.setQueryData(["session", sessionId], resumed);
     },
   });
 
+  // ── 3. Auto-resume jika session ended
+  // Depend pada full `session` object — lebih reliable dari session?.is_active
+  // karena object reference berubah saat data load, effect pasti fire
+  useEffect(() => {
+    if (!session) return;                  // belum load
+    if (session.is_active) return;         // sudah active, skip
+    if (resumeCalledRef.current) return;   // sudah pernah dipanggil
+
+    resumeCalledRef.current = true;
+    resumeMutation.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]); // intentionally full object
+
+  // ── 4. Fetch chat history
   const { data: history, isLoading: loadingHistory } = useQuery({
     queryKey: ["chatHistory", sessionId],
     queryFn: () => chatService.getHistory(sessionId),
+    enabled: !!sessionId,
+    staleTime: 0,
   });
+
+  // ── 5. canChat: derive langsung dari state, TIDAK ada intermediate state
+  //
+  // true  jika: session active, ATAU resume sedang jalan, ATAU resume sukses
+  // false hanya jika: session confirmed ended DAN tidak ada resume aktif
+  //
+  // Untuk sesi BARU (is_active=true) → canChat=true LANGSUNG setelah session load
+  // Untuk sesi lama ended → canChat=true saat resume start (bukan setelah selesai)
+  const canChat = Boolean(
+    session?.is_active ||         // session active
+    resumeMutation.isPending ||   // sedang auto-resume
+    resumeMutation.isSuccess      // resume baru selesai (cache belum update)
+  );
 
   const {
     messages,
@@ -41,23 +87,58 @@ export default function ChatRoomPage() {
   } = useChat({
     sessionId,
     initialMessages: history?.messages ?? [],
-    isSessionActive: session?.is_active ?? true,
+    isSessionActive: canChat,
   });
 
+  // Sync history ke local messages saat data datang
   useEffect(() => {
-    if (history?.messages) resetMessages(history.messages);
-  }, [history, resetMessages]);
+    if (history?.messages && !isStreaming) {
+      resetMessages(history.messages);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history?.messages]);
 
+  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent]);
 
-  const isSessionActive = session?.is_active ?? false;
+  // Invalidate sessionsByTask saat unmount → task page sync otomatis
+  useEffect(() => {
+    return () => {
+      if (session?.task_id) {
+        queryClient.invalidateQueries({
+          queryKey: ["sessionsByTask", session.task_id],
+        });
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.task_id]);
 
-  if (loadingHistory) {
+  // ── Loading: HANYA saat fetch session awal
+  // Resume TIDAK block full page — input hanya disabled sebentar
+  if (loadingSession) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-muted-foreground text-sm">Loading session...</p>
+        <div className="text-center space-y-2">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-muted-foreground text-sm">Loading session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Error: session tidak ditemukan
+  if (sessionError || !session) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center space-y-4 max-w-xs px-4">
+          <p className="font-medium">Session not found</p>
+          <p className="text-sm text-muted-foreground">
+            This session may have been deleted.
+          </p>
+          <Button onClick={() => router.back()}>Go back</Button>
+        </div>
       </div>
     );
   }
@@ -65,25 +146,20 @@ export default function ChatRoomPage() {
   return (
     <div className="flex flex-col h-screen bg-background">
 
-      {/* Header — simplified, no end button */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b bg-background">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.back()}
-        >
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b bg-background shrink-0">
+        <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">
-            {session?.title ?? "Untitled session"}
+            {session.title ?? "Untitled session"}
           </p>
-          <div className="flex items-center gap-1.5">
-            <span className={`w-1.5 h-1.5 rounded-full ${isSessionActive ? "bg-green-500" : "bg-gray-400"}`} />
-            <span className="text-xs text-muted-foreground">
-              {isSessionActive ? "Active" : "Ended — read only"}
-            </span>
-          </div>
+          {resumeMutation.isPending && (
+            <p className="text-xs text-muted-foreground animate-pulse">
+              Resuming...
+            </p>
+          )}
         </div>
       </div>
 
@@ -91,12 +167,18 @@ export default function ChatRoomPage() {
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-3xl mx-auto space-y-4">
 
-          {messages.length === 0 && !isStreaming && (
+          {!loadingHistory && messages.length === 0 && !isStreaming && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <p className="font-medium">Start your conversation</p>
               <p className="text-sm text-muted-foreground mt-1">
                 Ask the AI anything about this task.
               </p>
+            </div>
+          )}
+
+          {loadingHistory && (
+            <div className="flex justify-center py-8">
+              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           )}
 
@@ -116,21 +198,13 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
-      {/* Input */}
+      {/* Input: disabled HANYA saat resume pending */}
       <ChatInput
         onSend={sendMessage}
         onStop={stopStream}
         isStreaming={isStreaming}
-        disabled={!isSessionActive}
+        disabled={!canChat}
       />
-
-      {!isSessionActive && (
-        <div className="px-4 pb-3">
-          <p className="text-xs text-center text-muted-foreground">
-            This session has ended. Go back to the task to resume.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

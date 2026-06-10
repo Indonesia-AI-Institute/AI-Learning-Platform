@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatMessage } from "@/types/chat.types";
 
@@ -10,7 +10,11 @@ interface UseChatOptions {
   isSessionActive?: boolean;
 }
 
-export function useChat({ sessionId, initialMessages = [], isSessionActive = true }: UseChatOptions) {
+export function useChat({
+  sessionId,
+  initialMessages = [],
+  isSessionActive = true,
+}: UseChatOptions) {
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [streamingContent, setStreamingContent] = useState<string>("");
@@ -18,23 +22,40 @@ export function useChat({ sessionId, initialMessages = [], isSessionActive = tru
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Auto-end session when component unmounts (student navigates away)
+  // Ref selalu simpan nilai terbaru — fix stale closure di cleanup effect
+  const isActiveRef = useRef(isSessionActive);
+  const sessionIdRef = useRef(sessionId);
+
+  useEffect(() => {
+    isActiveRef.current = isSessionActive;
+  }, [isSessionActive]);
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  // Auto-end saat component unmount (student navigasi keluar dari chat room)
+  // Dependency array [] intentional — cleanup hanya perlu mount/unmount lifecycle
+  // Pakai ref bukan state untuk menghindari stale closure
   useEffect(() => {
     return () => {
-      if (isSessionActive) {
-        // Fire-and-forget: auto-end session on unmount
-        fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${sessionId}/auto-end`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            keepalive: true, // ensure request completes even if page unloads
-          }
-        ).catch(() => {});
-      }
+      if (!sessionIdRef.current) return;
+      if (!isActiveRef.current) return; // jangan end session yang sudah ended
+
+      fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${sessionIdRef.current}/auto-end`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          keepalive: true, // pastikan request selesai meski page unload
+        }
+      ).catch(() => {
+        // Ignore errors — auto-end adalah best-effort
+      });
     };
-  }, [sessionId, isSessionActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount/unmount only
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -68,7 +89,9 @@ export function useChat({ sessionId, initialMessages = [], isSessionActive = tru
           }
         );
 
-        if (!response.ok) throw new Error(`Stream error: ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`Stream error: ${response.status}`);
+        }
 
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
@@ -100,7 +123,9 @@ export function useChat({ sessionId, initialMessages = [], isSessionActive = tru
               ]);
               setStreamingContent("");
               setIsStreaming(false);
-              queryClient.invalidateQueries({ queryKey: ["chatHistory", sessionId] });
+              queryClient.invalidateQueries({
+                queryKey: ["chatHistory", sessionId],
+              });
               return;
             }
 

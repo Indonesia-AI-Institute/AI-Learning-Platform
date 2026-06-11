@@ -8,14 +8,13 @@
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
 import { useAuthStore } from "@/store/auth.store";
 import { LoginRequest, RegisterRequest } from "@/types/auth.types";
 
 export function useAuth() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { clearAuth } = useAuthStore();
 
@@ -28,9 +27,7 @@ export function useAuth() {
     onSuccess: () => {
       // Invalidate cache supaya data user baru di-fetch ulang
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-
-      const from = searchParams.get("from") ?? "/dashboard";
-      router.push(from);
+      router.push("/dashboard");
       router.refresh();
     },
   });

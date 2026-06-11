@@ -1,31 +1,29 @@
 """
-chat_routes.py
-==============
-Chat API Routes (Split Agent Architecture).
+api/v1/chat_routes.py
 """
 
 from uuid import UUID
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from src.backend.utils.role_guard import RoleGuard
-from src.backend.api.deps import (
-    get_db,
-    get_current_user,
-    get_chat_service,
-)
+from src.backend.api.deps import get_db, get_chat_service
 from src.backend.services.prompt_classification_service import PromptClassificationService
 from src.backend.llm.services.llm_service import LLMService
-from src.backend.api.deps import get_llm_service
 from src.backend.services.session_service import SessionService
 from src.backend.services.chat_history_service import ChatHistoryService
 from src.backend.services.chat_service import ChatService
 from src.backend.services.conversation_service import ConversationService
 
 from src.backend.models.user import User, UserRole
+from src.backend.models.chat_session import ChatSession
+from src.backend.models.task import Task
+from src.backend.models.course import Course
 
 from src.backend.schemas.chat.chat_request import ChatRequest
 from src.backend.schemas.chat.chat_response import ChatResponse
@@ -47,18 +45,12 @@ def get_conversation_service(
     db: AsyncSession = Depends(get_db),
     chat_service: ChatService = Depends(get_chat_service),
 ) -> ConversationService:
-
-    session_service = SessionService(db)
-    history_service = ChatHistoryService(db)
-    classification_service = PromptClassificationService(db)
-    llm_service = LLMService()
-
     return ConversationService(
-        session_service=session_service,
-        history_service=history_service,
+        session_service=SessionService(db),
+        history_service=ChatHistoryService(db),
         chat_service=chat_service,
-        classification_service=classification_service,
-        llm_service=llm_service,
+        classification_service=PromptClassificationService(db),
+        llm_service=LLMService(),
     )
 
 
@@ -97,7 +89,7 @@ async def generate_direct_chat(
 
 
 # =========================================================
-# CREATE SESSION
+# CREATE SESSION (Student)
 # =========================================================
 
 @router.post("/sessions/task/{task_id}", response_model=ChatSessionResponse)
@@ -109,7 +101,11 @@ async def create_session(
 ):
     service = SessionService(db)
     try:
-        session = await service.create_session(current_user=current_user, task_id=task_id, title=request.title)
+        session = await service.create_session(
+            current_user=current_user,
+            task_id=task_id,
+            title=request.title,
+        )
         return session
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -119,6 +115,7 @@ async def create_session(
 
 # =========================================================
 # GET MY SESSIONS (Student)
+# PENTING: route static "/my" harus SEBELUM route dynamic "/{session_id}"
 # =========================================================
 
 @router.get("/sessions/my", response_model=List[ChatSessionResponse])
@@ -137,6 +134,7 @@ async def get_my_sessions(
 
 # =========================================================
 # GET SESSIONS BY TASK (Student)
+# PENTING: route "/task/{task_id}" harus SEBELUM "/{session_id}"
 # =========================================================
 
 @router.get("/sessions/task/{task_id}", response_model=List[ChatSessionResponse])
@@ -149,7 +147,12 @@ async def get_sessions_by_task(
 ):
     service = SessionService(db)
     try:
-        return await service.get_sessions_by_task(current_user=current_user, task_id=task_id, skip=skip, limit=limit)
+        return await service.get_sessions_by_task(
+            current_user=current_user,
+            task_id=task_id,
+            skip=skip,
+            limit=limit,
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
@@ -157,65 +160,19 @@ async def get_sessions_by_task(
 
 
 # =========================================================
-# TEACHER — GET SESSIONS BY STUDENT
+# GET SINGLE SESSION BY ID (Student)
+# Dipakai chat room page — lebih efisien dari getMySessions().find()
 # =========================================================
 
-@router.get("/teacher/student/{student_id}/sessions", response_model=List[ChatSessionResponse])
-async def get_student_sessions_for_teacher(
-    student_id: UUID,
-    task_id: UUID | None = None,
-    skip: int = 0,
-    limit: int = 100,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleGuard([UserRole.TEACHER])),
-):
-    """
-    Teacher: get all chat sessions for a specific student.
-    Optionally filter by task_id.
-    """
-    from sqlalchemy import select
-    from src.backend.models.chat_session import ChatSession
-    from src.backend.models.task import Task
-    from src.backend.models.course import Course
-
-    stmt = (
-        select(ChatSession)
-        .join(Task, ChatSession.task_id == Task.id)
-        .join(Course, Task.course_id == Course.id)
-        .where(
-            ChatSession.student_id == student_id,
-            Course.teacher_id == current_user.id,
-        )
-    )
-
-    if task_id:
-        stmt = stmt.where(ChatSession.task_id == task_id)
-
-    stmt = stmt.order_by(ChatSession.created_at.desc()).offset(skip).limit(limit)
-
-    from sqlalchemy.ext.asyncio import AsyncSession as AS
-    result = await db.execute(stmt)
-    return result.scalars().all()
-
-
-# =========================================================
-# TEACHER — GET CHAT HISTORY OF A SESSION
-# =========================================================
-
-@router.get("/teacher/sessions/{session_id}/history", response_model=ChatHistoryResponse)
-async def get_session_history_for_teacher(
+@router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
+async def get_session_by_id(
     session_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleGuard([UserRole.TEACHER])),
+    current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
 ):
-    """
-    Teacher: view full chat history of any session in their courses.
-    """
-    session_service = SessionService(db)
-    history_service = ChatHistoryService(db)
-
+    service = SessionService(db)
     try:
-        await session_service.get_session_detail(
+        return await service.get_session_detail(
             current_user=current_user,
             session_id=session_id,
         )
@@ -224,23 +181,9 @@ async def get_session_history_for_teacher(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-    messages = await history_service.get_session_messages(session_id)
-
-    return ChatHistoryResponse(
-        session_id=session_id,
-        messages=[
-            ChatMessageItem(
-                role=msg.role.value,
-                content=msg.content,
-                created_at=msg.created_at,
-            )
-            for msg in messages
-        ],
-    )
-
 
 # =========================================================
-# SESSION CHAT (STATEFUL)
+# STREAM SESSION CHAT (Student)
 # =========================================================
 
 @router.post("/sessions/{session_id}/stream")
@@ -269,7 +212,7 @@ async def stream_session_chat(
 
 
 # =========================================================
-# END SESSION
+# END SESSION (Student)
 # =========================================================
 
 @router.post("/sessions/{session_id}/end", response_model=ChatSessionResponse)
@@ -278,10 +221,9 @@ async def end_chat_session(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
 ):
-    session_service = SessionService(db)
+    service = SessionService(db)
     try:
-        session = await session_service.end_session(current_user=current_user, session_id=session_id)
-        return session
+        return await service.end_session(current_user=current_user, session_id=session_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
@@ -289,7 +231,7 @@ async def end_chat_session(
 
 
 # =========================================================
-# RESUME SESSION
+# RESUME SESSION (Student)
 # =========================================================
 
 @router.post("/sessions/{session_id}/resume", response_model=ChatSessionResponse)
@@ -298,62 +240,60 @@ async def resume_chat_session(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
 ):
-    session_service = SessionService(db)
+    service = SessionService(db)
     try:
-        session = await session_service.resume_session(current_user=current_user, session_id=session_id)
-        return session
+        return await service.resume_session(current_user=current_user, session_id=session_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
 
-"""
-PATCH — chat_routes.py
-======================
-Tambahkan endpoint ini ke chat_routes.py.
-Letakkan SEBELUM route /sessions/{session_id}/history dan /sessions/{session_id}/stream
-agar tidak konflik urutan route FastAPI.
-
-URUTAN ROUTE yang benar di chat_routes.py:
-  POST   /sessions/task/{task_id}          ← create session
-  GET    /sessions/my                      ← get my sessions
-  GET    /sessions/task/{task_id}          ← get by task
-  GET    /sessions/{session_id}            ← get single (BARU, tambahkan di sini)
-  GET    /sessions/{session_id}/history    ← get history
-  POST   /sessions/{session_id}/stream     ← stream chat
-  POST   /sessions/{session_id}/end
-  POST   /sessions/{session_id}/resume
-  POST   /sessions/{session_id}/auto-end
-  DELETE /sessions/{session_id}
-"""
-
 # =========================================================
-# GET SINGLE SESSION BY ID (Student)
+# AUTO-END SESSION (Student — called on page unmount)
 # =========================================================
 
-@router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
-async def get_session_by_id(
+@router.post("/sessions/{session_id}/auto-end", response_model=ChatSessionResponse)
+async def auto_end_chat_session(
     session_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
 ):
     """
-    Student: fetch detail satu session by ID.
-    Dipakai oleh chat room page agar tidak perlu getMySessions().find().
+    Dipanggil otomatis oleh frontend saat student navigasi keluar chat room.
+    Graceful: tidak error jika session sudah ended.
     """
-    session_service = SessionService(db)
-
+    service = SessionService(db)
     try:
-        session = await session_service.get_session_detail(
-            current_user=current_user,
-            session_id=session_id,
-        )
-        return session
+        return await service.end_session(current_user=current_user, session_id=session_id)
+    except ValueError:
+        # Session mungkin sudah ended — tidak apa-apa
+        db_session = await service.session_repo.get(session_id)
+        if db_session:
+            return db_session
+        raise HTTPException(status_code=404, detail="Session not found.")
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# =========================================================
+# DELETE SESSION (Student)
+# =========================================================
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_chat_session(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
+):
+    service = SessionService(db)
+    try:
+        await service.delete_session(current_user=current_user, session_id=session_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
+
 
 # =========================================================
 # GET CHAT HISTORY (Student)
@@ -365,11 +305,11 @@ async def get_chat_history(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
 ):
-    session_service = SessionService(db)
+    service = SessionService(db)
     history_service = ChatHistoryService(db)
 
     try:
-        await session_service.get_session_detail(current_user=current_user, session_id=session_id)
+        await service.get_session_detail(current_user=current_user, session_id=session_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
@@ -380,60 +320,102 @@ async def get_chat_history(
     return ChatHistoryResponse(
         session_id=session_id,
         messages=[
-            ChatMessageItem(role=msg.role.value, content=msg.content, created_at=msg.created_at)
+            ChatMessageItem(
+                role=msg.role.value,
+                content=msg.content,
+                created_at=msg.created_at,
+            )
             for msg in messages
         ],
     )
+
+
 # =========================================================
-# DELETE SESSION (Student)
+# TEACHER — GET STUDENT SESSIONS (with task title)
 # =========================================================
- 
-@router.delete("/sessions/{session_id}", status_code=204)
-async def delete_chat_session(
+
+@router.get("/teacher/student/{student_id}/sessions")
+async def get_student_sessions_for_teacher(
+    student_id: UUID,
+    task_id: Optional[UUID] = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(RoleGuard([UserRole.TEACHER])),
+):
+    """Teacher: lihat semua chat session student dalam course yang diajar."""
+    stmt = (
+        select(ChatSession)
+        .join(Task, ChatSession.task_id == Task.id)
+        .join(Course, Task.course_id == Course.id)
+        .options(selectinload(ChatSession.task))
+        .where(
+            ChatSession.student_id == student_id,
+            Course.teacher_id == current_user.id,
+        )
+    )
+
+    if task_id:
+        stmt = stmt.where(ChatSession.task_id == task_id)
+
+    stmt = stmt.order_by(ChatSession.created_at.desc()).offset(skip).limit(limit)
+
+    result = await db.execute(stmt)
+    sessions = result.scalars().all()
+
+    return [
+        {
+            "id": str(s.id),
+            "student_id": str(s.student_id),
+            "task_id": str(s.task_id),
+            "task_title": s.task.title if s.task else None,
+            "title": s.title,
+            "is_active": s.is_active,
+            "created_at": s.created_at.isoformat(),
+            "ended_at": s.ended_at.isoformat() if s.ended_at else None,
+        }
+        for s in sessions
+    ]
+
+
+# =========================================================
+# TEACHER — GET SESSION HISTORY
+# =========================================================
+
+@router.get("/teacher/sessions/{session_id}/history", response_model=ChatHistoryResponse)
+async def get_session_history_for_teacher(
     session_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
+    current_user: User = Depends(RoleGuard([UserRole.TEACHER])),
 ):
-    session_service = SessionService(db)
- 
-    try:
-        await session_service.delete_session(
-            current_user=current_user,
-            session_id=session_id,
+    """Teacher: lihat full chat history dari session manapun di course mereka."""
+    # Verifikasi session ada di course yang diajar teacher
+    stmt = (
+        select(ChatSession)
+        .join(Task, ChatSession.task_id == Task.id)
+        .join(Course, Task.course_id == Course.id)
+        .where(
+            ChatSession.id == session_id,
+            Course.teacher_id == current_user.id,
         )
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
- 
- 
-# =========================================================
-# AUTO END SESSION (called when student navigates away)
-# =========================================================
- 
-@router.post("/sessions/{session_id}/auto-end", response_model=ChatSessionResponse)
-async def auto_end_chat_session(
-    session_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleGuard([UserRole.STUDENT])),
-):
-    """
-    Called automatically by frontend when student navigates away.
-    Same logic as end_session but separate endpoint for clarity.
-    """
-    session_service = SessionService(db)
- 
-    try:
-        session = await session_service.end_session(
-            current_user=current_user,
-            session_id=session_id,
-        )
-        return session
-    except ValueError:
-        # Session might already be ended — not an error
-        db_session = await session_service.session_repo.get(session_id)
-        if db_session:
-            return db_session
-        raise HTTPException(status_code=404, detail="Session not found.")
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    )
+    result = await db.execute(stmt)
+    session = result.scalar_one_or_none()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found or access denied.")
+
+    history_service = ChatHistoryService(db)
+    messages = await history_service.get_session_messages(session_id)
+
+    return ChatHistoryResponse(
+        session_id=session_id,
+        messages=[
+            ChatMessageItem(
+                role=msg.role.value,
+                content=msg.content,
+                created_at=msg.created_at,
+            )
+            for msg in messages
+        ],
+    )

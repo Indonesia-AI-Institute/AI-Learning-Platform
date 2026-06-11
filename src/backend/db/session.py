@@ -5,7 +5,7 @@ from src.backend.core.config import settings
 
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=True,  # ubah False nanti kalau production
+    echo=False,  # ubah False nanti kalau production
 )
 
 AsyncSessionLocal = async_sessionmaker(

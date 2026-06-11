@@ -22,7 +22,10 @@ class ChatSession(BaseModel):
         index=True
     )
 
-    title = Column(String(255), nullable=True)
+    title = Column(
+        String(255), 
+        nullable=True
+    )
 
     is_active = Column(
         Boolean,
@@ -46,7 +49,8 @@ class ChatSession(BaseModel):
 
     task = relationship(
         "Task",
-        back_populates="chat_sessions"
+        back_populates="chat_sessions",
+        lazy="select"
     )
 
     histories = relationship(

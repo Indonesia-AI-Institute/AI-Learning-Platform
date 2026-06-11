@@ -14,4 +14,6 @@ export interface Task {
   due_date: string | null;
   course_id: string;
   class_info?: ClassInfo | null;
+  class_id?: string | null;
+  is_active?: boolean;
 }

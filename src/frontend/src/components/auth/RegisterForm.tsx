@@ -42,13 +42,14 @@ import { useAuth } from "@/hooks/useAuth";
 // SCHEMA
 // =========================================================
 
+// Zod enum for the role field.
+const RoleEnum = z.enum(["student", "teacher"]);
+
 const registerSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  role: z.enum(["student", "teacher"], {
-    required_error: "Please select a role",
-  }),
+  role: RoleEnum,
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;

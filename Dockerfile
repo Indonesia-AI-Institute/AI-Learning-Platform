@@ -1,15 +1,15 @@
 # =====================================================
 # BASE IMAGE
 # =====================================================
-FROM python:3.11-slim
+FROM python:3.11-slim AS base
 
 # =====================================================
 # ENV SETTINGS
 # =====================================================
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-ENV PYTHONPATH=/app/src/backend
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    # FIX: harus /app agar "from src.backend..." bekerja
+    PYTHONPATH=/app
 
 # =====================================================
 # WORKDIR
@@ -22,35 +22,38 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # =====================================================
-# COPY REQUIREMENTS FIRST (CACHE OPTIMIZATION)
+# DEPENDENCIES (layer terpisah untuk cache)
 # =====================================================
 COPY requirements.txt .
-
 RUN pip install --no-cache-dir -r requirements.txt
 
 # =====================================================
-# COPY SOURCE CODE
+# SOURCE CODE
 # =====================================================
 COPY src ./src
 
-# Optional kalau kamu simpan .env di root container
-# COPY .env .env
+# Alembic config (untuk migration)
+COPY alembic.ini .
+COPY alembic ./alembic
 
 # =====================================================
-# SECURITY → NON ROOT USER
+# SECURITY — non-root user
 # =====================================================
-RUN useradd -m appuser
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 # =====================================================
-# EXPOSE PORT
+# PORT
 # =====================================================
 EXPOSE 8000
 
 # =====================================================
-# START COMMAND (PRODUCTION MODE)
+# ENTRYPOINT — jalankan migration lalu start server
 # =====================================================
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Pisahkan di entrypoint.sh agar migration tidak
+# dijalankan ulang setiap container restart
+CMD ["uvicorn", "src.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

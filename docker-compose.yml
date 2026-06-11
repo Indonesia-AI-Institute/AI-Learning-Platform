@@ -1,44 +1,106 @@
-version: "3.9"
-
 name: ai-learning-platform
 
 services:
-  db:
-    image: postgres:15
-    container_name: ailearning-db
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 12345
-      POSTGRES_DB: postgres
-    volumes:
-      - pgdata:/var/lib/postgresql
-    networks:
-      - ai-learning-platform-net
-    ports:
-      - "5432:5432"
 
+  # ===================================================
+  # DATABASE
+  # ===================================================
+  db:
+    image: postgres:15-alpine
+    container_name: ailearning-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-12345}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_learning}
+    volumes:
+      # FIX: path yang benar untuk postgres data
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - ai-learning-net
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ai_learning}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ===================================================
+  # BACKEND API
+  # ===================================================
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ai-learning-platform-api
+    container_name: ailearning-api
+    restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Override DATABASE_URL agar pakai service name "db" bukan localhost
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-12345}@db:5432/${POSTGRES_DB:-ai_learning}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     networks:
-      - ai-learning-platform-net
+      - ai-learning-net
+    # Jalankan migration dulu baru start server
     command: >
-      uvicorn backend.main:app
-      --host 0.0.0.0
-      --port 8000
+      sh -c "
+        echo '⏳ Running migrations...' &&
+        alembic upgrade head &&
+        echo '🚀 Starting API...' &&
+        uvicorn src.backend.main:app --host 0.0.0.0 --port 8000
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      # Hot reload untuk development (comment out untuk production)
+      # - ./src:/app/src
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
 
+  # ===================================================
+  # FRONTEND
+  # ===================================================
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      args:
+        # API URL untuk Next.js — harus bisa diakses dari browser
+        # Di production ganti dengan domain/IP public
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+    container_name: ailearning-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - ai-learning-net
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+
+# ===================================================
+# NETWORKS
+# ===================================================
 networks:
-  ai-learning-platform-net:
+  ai-learning-net:
     driver: bridge
 
+# ===================================================
+# VOLUMES
+# ===================================================
 volumes:
   pgdata:
+    driver: local

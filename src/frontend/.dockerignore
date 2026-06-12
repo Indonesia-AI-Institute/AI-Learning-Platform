@@ -1,0 +1,38 @@
+# Env
+.env
+.env.*
+!.env.example
+
+# Docs
+*.md
+docs/
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js build output
+.next/
+out/
+
+# Development
+*.log
+.DS_Store
+
+# Tests
+coverage/
+.jest/
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Git
+.git/
+.gitignore
+

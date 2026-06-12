@@ -32,30 +32,22 @@ htmlcov/
 docker-compose*.yml
 Dockerfile*
 
-# Frontend (tidak perlu masuk backend image)
-frontend/
+# Frontend
+src/frontend/node_modules/
+src/frontend/.next/
+src/frontend/out/
+src/frontend/.turbo/
+src/frontend/.pnpm-store/
 
-# Env
-.env
-.env.*
-!.env.example
+# Dataset
+datasets/
+data/
+uploads/
 
-# Docs
-*.md
-docs/
+# Notebook
+*.ipynb
 
-# Dependencies
-node_modules/
-.pnpm-store/
-
-# Next.js build output
-.next/
-out/
-
-# Development
-*.log
-.DS_Store
-
-# Tests
-coverage/
-.jest/
+# Local DB
+*.db
+*.sqlite
+*.sqlite3

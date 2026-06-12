@@ -42,9 +42,13 @@ class Class(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
+    # Eagerly load the related Course to avoid async lazy loading after the DB session is closed.
+    # Using "joined" loading ensures the Course data is fetched in the same query, preventing
+    # MissingGreenlet errors when FastAPI serializes the response outside the async session.
     course = relationship(
-        "Course", 
-        back_populates="classes"
+        "Course",
+        back_populates="classes",
+        lazy="joined",
     )
     enrollments = relationship(
         "Enrollment", 

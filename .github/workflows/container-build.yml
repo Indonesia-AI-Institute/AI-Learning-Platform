@@ -75,7 +75,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          dockerfile: Dockerfile
+          file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           # Hanya push jika bukan PR
           push: ${{ github.event_name != 'pull_request' }}
@@ -132,7 +132,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./src/frontend
-          dockerfile: ./src/frontend/Dockerfile
+          file: ./src/frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}

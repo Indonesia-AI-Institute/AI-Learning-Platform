@@ -149,8 +149,7 @@ env.bak/
 venv.bak/
 
 #Alembic
-alembic.ini
-alembic/versions
+alembic/versions/__pycache__
 
 # Spyder project settings
 .spyderproject

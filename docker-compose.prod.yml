@@ -32,7 +32,7 @@ services:
   # BACKEND API
   # ===================================================
   api:
-    image: ghcr.io/indonesia-ai-institute/ai-learning-platform-api:v1.0.0
+    image: ghcr.io/indonesia-ai-institute/ai-learning-platform-api:latest
     container_name: ailearning-api
     restart: unless-stopped
     env_file:
@@ -61,7 +61,7 @@ services:
   # FRONTEND
   # ===================================================
   frontend:
-    image: ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:v1.0.0
+    image: ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:latest
     container_name: ailearning-frontend
     restart: unless-stopped
     ports:

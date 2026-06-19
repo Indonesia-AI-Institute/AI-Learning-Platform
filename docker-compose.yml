@@ -35,7 +35,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ghcr.io/indonesia-ai-institute/ai-learning-platform-api:v1.0.0
+    image: ghcr.io/indonesia-ai-institute/ai-learning-platform-api:latest
     container_name: ailearning-api
     restart: unless-stopped
     env_file:
@@ -70,7 +70,7 @@ services:
       args:
         # Di production ganti dengan domain/IP public
         NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
-    image: ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:v1.0.0
+    image: ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:latest
     container_name: ailearning-frontend
     restart: unless-stopped
     ports:

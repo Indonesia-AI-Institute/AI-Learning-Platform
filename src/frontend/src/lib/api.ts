@@ -25,9 +25,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear client state and redirect to login
       if (typeof window !== "undefined") {
-        window.location.href = "/login";
+        const currentPath = window.location.pathname;
+        // Only redirect once and avoid redirect loops.
+        if (!currentPath.startsWith("/login")) {
+          // Use a simple flag to prevent multiple redirects.
+          if (!(window as any).__apiRedirecting) {
+            (window as any).__apiRedirecting = true;
+            window.location.href = "/login";
+          }
+        }
       }
     }
     return Promise.reject(error);

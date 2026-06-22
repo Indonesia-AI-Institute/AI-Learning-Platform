@@ -196,26 +196,26 @@ docker network create ai-learning-net
 
 Run image postgresql
 ```bash
-docker run -d \
-  --name ailearning-db \
-  --network ai-learning-net \
-  --restart unless-stopped \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=your_password \
-  -e POSTGRES_DB=ai_learning \
-  -v pgdata:/var/lib/postgresql/data \
-  -p 5432:5432 \
+docker run -d `
+  --name db `
+  --network ai-learning-net `
+  --restart unless-stopped `
+  -e POSTGRES_USER=postgres `
+  -e POSTGRES_PASSWORD=your_password `
+  -e POSTGRES_DB=ai_learning `
+  -v pgdata:/var/lib/postgresql/data `
+  -p 5432:5432 `
   postgres:15-alpine
 ```
 Run image backend API
 
 ```bash
-docker run -d \
-  --name ailearning-api \
-  --network ai-learning-net \
-  --restart unless-stopped \
-  --env-file .env \
-  -p 8000:8000 \
+docker run -d `
+  --name ailearning-api `
+  --network ai-learning-net `
+  --restart unless-stopped `
+  --env-file .env `
+  -p 8000:8000 `
   ghcr.io/indonesia-ai-institute/ai-learning-platform-api:latest
 ```
 Run database migration
@@ -226,11 +226,11 @@ docker exec ailearning-api alembic upgrade head
 Run image frontend
 
 ```bash
-docker run -d \
-  --name ailearning-frontend \
-  --network ai-learning-net \
-  --restart unless-stopped \
-  -p 3000:3000 \
+docker run -d `
+  --name ailearning-frontend `
+  --network ai-learning-net `
+  --restart unless-stopped `
+  -p 3000:3000 `
   ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:latest
 ```
 

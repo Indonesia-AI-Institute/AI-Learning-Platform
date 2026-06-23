@@ -60,10 +60,6 @@ class ChatSession(BaseModel):
         order_by="ChatHistory.created_at"
     )
 
-    # =========================
-    # ANALYTICS RELATIONSHIP
-    # =========================
-
     analytics = relationship(
         "SessionAnalytics",
         back_populates="session",

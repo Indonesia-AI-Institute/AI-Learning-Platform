@@ -47,7 +47,7 @@ class Course(Base):
         back_populates="course"
     )
 
-    tasks = relationship (
+    task = relationship (
         "Task", 
         back_populates="course", 
         cascade="all, delete-orphan"

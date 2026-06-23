@@ -14,11 +14,10 @@ export function useCurrentUser() {
   const { data: user, isLoading, isError } = useQuery({
     queryKey: ["currentUser"],
     queryFn: () => userService.getMe(),
-    staleTime: 1000 * 60 * 5, // cache 5 menit
-    retry: false,              // jangan retry kalau 401
-    // Prevent automatic refetch on window focus which can cause a
-    // race of 401 requests after the session expires.
-    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5,  // cache 5 menit
+    retry: false,               // jangan retry kalau 401
+    refetchOnWindowFocus: false, // FIX: mencegah spam /auth/me tiap window focus
+                                 // Tanpa ini: setiap tab switch = 401 → redirect loop
   });
 
   return { user, isLoading, isError };

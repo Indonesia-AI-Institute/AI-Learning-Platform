@@ -8,7 +8,8 @@ import { courseService } from "@/services/course.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 
 export default function EditCoursePage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -17,131 +18,186 @@ export default function EditCoursePage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isActive, setIsActive] = useState(true);
+  const [titleError, setTitleError] = useState("");
+  const [formError, setFormError] = useState("");
 
-  const { data: course } = useQuery({
+  const { data: course, isLoading } = useQuery({
     queryKey: ["course", courseId],
     queryFn: () => courseService.getCourseDetail(courseId),
   });
 
+  // Pre-fill form saat data tersedia
   useEffect(() => {
-    if (course) {
-      setTitle(course.title);
-      setDescription(course.description ?? "");
-    }
+    if (!course) return;
+    setTitle(course.title ?? "");
+    setDescription(course.description ?? "");
+    setIsActive(course.is_active ?? true);
   }, [course]);
 
   const updateMutation = useMutation({
     mutationFn: () =>
       courseService.updateCourse(courseId, {
-        title,
-        description: description || undefined,
+        title: title.trim(),
+        description: description.trim() || null,
+        is_active: isActive,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["myCourses"] });
       queryClient.invalidateQueries({ queryKey: ["course", courseId] });
+      queryClient.invalidateQueries({ queryKey: ["myCourses"] });
       router.push(`/courses/${courseId}`);
     },
     onError: (err: any) => {
-      setError(err?.response?.data?.detail ?? "Failed to update course.");
+      const detail = err?.response?.data?.detail;
+      const msg = typeof detail === "string"
+        ? detail
+        : Array.isArray(detail)
+        ? detail.map((d: any) => d.msg).join(", ")
+        : "Failed to update course. Please try again.";
+      setFormError(msg);
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: () => courseService.deleteCourse(courseId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["myCourses"] });
-      router.push("/courses");
-    },
-    onError: (err: any) => {
-      setError(err?.response?.data?.detail ?? "Failed to delete course.");
-    },
-  });
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+    setTitleError("");
+
+    // Validasi title tidak boleh kosong
+    if (!title.trim()) {
+      setTitleError("Course title is required and cannot be empty.");
+      return;
+    }
+
+    updateMutation.mutate();
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Edit Course">
+        <div className="flex items-center gap-2 py-8">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!course) {
+    return (
+      <DashboardLayout title="Edit Course">
+        <p className="text-muted-foreground text-sm py-8">Course not found.</p>
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <DashboardLayout title="Edit Course">
-      <div className="max-w-md space-y-6">
+    <DashboardLayout title={`Edit: ${course.title}`}>
+      <div className="max-w-2xl space-y-6">
 
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => router.push(`/courses/${courseId}`)}
+          onClick={() => router.back()}
           className="text-muted-foreground -ml-2"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
 
-        <h2 className="text-2xl font-semibold">Edit course</h2>
+        <div>
+          <h2 className="text-2xl font-semibold">Edit Course</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Update course details and visibility
+          </p>
+        </div>
 
-        <div className="space-y-4 border rounded-lg p-5">
+        <form onSubmit={handleSubmit} className="space-y-5 border rounded-lg p-6">
+
+          {/* Title */}
           <div className="space-y-2">
-            <Label>Course title</Label>
+            <Label htmlFor="title">
+              Course Title <span className="text-destructive">*</span>
+            </Label>
             <Input
+              id="title"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                // Clear error saat user mulai mengetik
+                if (e.target.value.trim()) setTitleError("");
+              }}
+              placeholder="Enter course title"
+              className={titleError ? "border-destructive focus-visible:ring-destructive" : ""}
             />
+            {titleError && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {titleError}
+              </p>
+            )}
           </div>
 
+          {/* Description */}
           <div className="space-y-2">
-            <Label>Description (optional)</Label>
-            <Input
+            <Label htmlFor="description">Description</Label>
+            <textarea
+              id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              placeholder="Course description (optional)"
+              className="w-full border rounded-md p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring min-h-[100px]"
+              rows={4}
             />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <Button
-            className="w-full"
-            onClick={() => updateMutation.mutate()}
-            disabled={updateMutation.isPending}
-          >
-            {updateMutation.isPending ? "Saving..." : "Save changes"}
-          </Button>
-        </div>
-
-        {/* Delete section */}
-        <div className="border border-destructive/30 rounded-lg p-5 space-y-3">
-          <p className="text-sm font-medium text-destructive">Danger zone</p>
-          {!showDeleteConfirm ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive border-destructive/30 hover:bg-destructive/5"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete course
-            </Button>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Are you sure? This action cannot be undone.
+          {/* Active / Inactive toggle */}
+          <div className="flex items-center justify-between border rounded-lg p-4">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Course Status</p>
+              <p className="text-xs text-muted-foreground">
+                {isActive
+                  ? "Active — visible to students"
+                  : "Inactive — hidden from students"}
               </p>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => deleteMutation.mutate()}
-                  disabled={deleteMutation.isPending}
-                >
-                  {deleteMutation.isPending ? "Deleting..." : "Yes, delete"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowDeleteConfirm(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
+            </div>
+            <Switch
+              checked={isActive}
+              onCheckedChange={setIsActive}
+            />
+          </div>
+
+          {/* Form-level error */}
+          {formError && (
+            <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+              <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+              <p className="text-sm text-destructive">{formError}</p>
             </div>
           )}
-        </div>
 
+          {/* Actions */}
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Saving...
+                </span>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={updateMutation.isPending}
+            >
+              Cancel
+            </Button>
+          </div>
+
+        </form>
       </div>
     </DashboardLayout>
   );

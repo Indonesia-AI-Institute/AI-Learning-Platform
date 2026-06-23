@@ -41,6 +41,15 @@ class Class(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # =========================
+    # RELATIONSHIPS
+    # =========================
+
+
+    task = relationship(
+        "Task",
+        back_populates="classes"
+    )
 
     course = relationship(
         "Course",

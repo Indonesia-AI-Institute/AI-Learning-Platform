@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 from typing import List, Optional
 
@@ -23,7 +24,6 @@ class TaskService:
 
     # =========================
     # INTERNAL: Find enrolled class for student in a course
-    # FIX: replaces get_by_course_id which fails if course has multiple classes
     # =========================
 
     async def _get_enrolled_class(
@@ -40,9 +40,33 @@ class TaskService:
             if enrollment:
                 return cls
         return None
+    
+    # =========================
+    # INTERNAL: Auto-deactivate tasks past due date
+    # Called before returning tasks to any user.
+    # Teacher can re-activate manually via update_task.
+    # =========================
+ 
+    async def _auto_deactivate_overdue(self, tasks: List[Task]) -> List[Task]:
+        """
+        Jika task masih aktif tapi due_date sudah lewat,
+        otomatis set is_active=False di DB dan return task yang sudah diupdate.
+        """
+        now = datetime.now(timezone.utc)
+        result = []
+        for task in tasks:
+            if (
+                task.is_active
+                and task.due_date is not None
+                and task.due_date < now
+            ):
+                # Deactivate — simpan ke DB
+                task = await self.task_repo.update(task, {"is_active": False})
+            result.append(task)
+        return result
 
     # =========================
-    # INTERNAL: Build TaskResponse with class info
+    # TaskResponse with class info
     # =========================
 
     async def _build_response(
@@ -61,7 +85,9 @@ class TaskService:
             title=task.title,
             description=task.description,
             due_date=task.due_date,
-            course_id=task.course_id,
+            is_active=task.is_active,
+            course_id=task.course_id,   
+            class_id=class_id,
             class_info=class_info,
         )
 

@@ -1,5 +1,14 @@
-from datetime import datetime
+"""
+schemas/task/task_response.py
+==============================
+is_active wajib ada di response agar:
+1. Frontend bisa menampilkan status active/inactive
+2. Toggle di edit page bisa pre-fill nilai yang benar
+3. Auto-deactivate due date reflect ke UI
+"""
+
 from typing import Optional
+from datetime import datetime
 from uuid import UUID
 from pydantic import BaseModel
 
@@ -8,7 +17,8 @@ class ClassInfo(BaseModel):
     id: UUID
     name: str
 
-    model_config = {"from_attributes": True}
+    class Config:
+        from_attributes = True
 
 
 class TaskResponse(BaseModel):
@@ -16,9 +26,10 @@ class TaskResponse(BaseModel):
     title: str
     description: Optional[str] = None
     due_date: Optional[datetime] = None
+    is_active: bool                        # FIX: field ini wajib ada
     course_id: UUID
-
-    # Populated via service layer, not direct ORM relation
+    class_id: Optional[UUID] = None
     class_info: Optional[ClassInfo] = None
 
-    model_config = {"from_attributes": True}
+    class Config:
+        from_attributes = True

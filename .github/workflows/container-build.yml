@@ -3,17 +3,15 @@ name: Build & Push to GHCR
 on:
   push:
     branches:
-      - main          # push ke main → build & push image :latest
-    tags:
-      - "v*.*.*"      # push tag v1.2.3 → build & push image :v1.2.3
+      - main
   pull_request:
     branches:
-      - main          # PR → build saja, tidak push
-  workflow_dispatch:  # trigger manual dari GitHub UI
+      - main       # PR → build saja, tidak push, tidak release
+  workflow_dispatch:
 
 permissions:
-  contents: read
-  packages: write
+  contents: write  # PSR butuh write untuk push tag & CHANGELOG ke repo
+  packages: write  # Docker push ke GHCR
 
 env:
   REGISTRY: ghcr.io
@@ -21,22 +19,68 @@ env:
 
 jobs:
 
-  # ─────────────────────────────────────────────────
-  # JOB 1: Build & Push Backend API
-  # ─────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────
+  # JOB 1: Semantic Release
+  # Baca commit messages, tentukan versi baru, buat tag & CHANGELOG.
+  # Job ini hanya jalan saat push ke main (bukan PR).
+  # ─────────────────────────────────────────────────────────────
+  release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+
+    outputs:
+      # released: "true" jika versi baru diterbitkan, "false" jika tidak
+      released: ${{ steps.release.outputs.released }}
+      # contoh: 1.3.0
+      version: ${{ steps.release.outputs.version }}
+      # contoh: v1.3.0
+      tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # PSR butuh full history untuk baca semua commit sejak tag terakhir
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install python-semantic-release
+        run: pip install python-semantic-release==9.*
+
+      - name: Run semantic-release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release version --no-vcs-release
+          semantic-release publish
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 2: Build & Push Backend API
+  # Hanya jalan jika:
+  # - PSR menerbitkan versi baru (push ke main), ATAU
+  # - Ini adalah PR (validasi build saja, tidak push image)
+  # ─────────────────────────────────────────────────────────────
   build-api:
     name: Build API Image
     runs-on: ubuntu-latest
-
-    outputs:
-      image: ${{ steps.meta.outputs.tags }}
-      digest: ${{ steps.push.outputs.digest }}
+    needs: [release]
+    if: |
+      always() && (
+        (github.event_name == 'pull_request') ||
+        (needs.release.result == 'success' && needs.release.outputs.released == 'true')
+      )
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Login ke GHCR
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -44,28 +88,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Setup QEMU untuk multi-platform build (linux/amd64 + linux/arm64)
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      # Setup Buildx untuk caching dan multi-platform
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Generate tags & labels otomatis berdasarkan branch/tag
-      # main       → :latest + :sha-xxxxxxx
-      # v1.2.3 tag → :v1.2.3 + :1.2.3 + :1.2 + :latest
-      # PR         → :pr-123 (tidak dipush)
       - name: Extract Docker metadata (API)
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_BASE }}-api
           tags: |
-            type=ref,event=branch
             type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.event_name != 'pull_request' }}
+            type=raw,value=${{ needs.release.outputs.version }},enable=${{ needs.release.outputs.released == 'true' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag }},enable=${{ needs.release.outputs.released == 'true' }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag }},enable=${{ needs.release.outputs.released == 'true' }}
 
       - name: Build and push API image
         id: push
@@ -74,24 +113,24 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          # Hanya push jika bukan PR
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Cache layer menggunakan GitHub Actions cache
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
-  # ─────────────────────────────────────────────────
-  # JOB 2: Build & Push Frontend
-  # ─────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────
+  # JOB 3: Build & Push Frontend
+  # ─────────────────────────────────────────────────────────────
   build-frontend:
     name: Build Frontend Image
     runs-on: ubuntu-latest
-
-    outputs:
-      image: ${{ steps.meta.outputs.tags }}
-      digest: ${{ steps.push.outputs.digest }}
+    needs: [release]
+    if: |
+      always() && (
+        (github.event_name == 'pull_request') ||
+        (needs.release.result == 'success' && needs.release.outputs.released == 'true')
+      )
 
     steps:
       - name: Checkout repository
@@ -116,10 +155,11 @@ jobs:
         with:
           images: ${{ env.IMAGE_BASE }}-frontend
           tags: |
-            type=ref,event=branch
             type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.event_name != 'pull_request' }}
+            type=raw,value=${{ needs.release.outputs.version }},enable=${{ needs.release.outputs.released == 'true' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag }},enable=${{ needs.release.outputs.released == 'true' }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag }},enable=${{ needs.release.outputs.released == 'true' }}
 
       - name: Build and push Frontend image
         id: push
@@ -136,24 +176,33 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
 
-  # ─────────────────────────────────────────────────
-  # JOB 3: Summary setelah keduanya selesai
-  # ─────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────
+  # JOB 4: Summary
+  # ─────────────────────────────────────────────────────────────
   summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [build-api, build-frontend]
-    if: github.event_name != 'pull_request'
+    needs: [release, build-api, build-frontend]
+    if: always() && github.event_name != 'pull_request'
 
     steps:
-      - name: Print image info
+      - name: Print summary
         run: |
-          echo "## ✅ Images pushed to GHCR" >> $GITHUB_STEP_SUMMARY
+          echo "## CI/CD Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Service | Image |" >> $GITHUB_STEP_SUMMARY
-          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| API | \`${{ env.IMAGE_BASE }}-api:latest\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend | \`${{ env.IMAGE_BASE }}-frontend:latest\` |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.release.outputs.released }}" == "true" ]; then
+            echo "**New release:** \`${{ needs.release.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Service | Image |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| API | \`${{ env.IMAGE_BASE }}-api:${{ needs.release.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Frontend | \`${{ env.IMAGE_BASE }}-frontend:${{ needs.release.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**No release:** tidak ada commit yang memicu versi baru." >> $GITHUB_STEP_SUMMARY
+            echo "Gunakan prefix \`feat:\`, \`fix:\`, atau \`feat!:\` untuk memicu release." >> $GITHUB_STEP_SUMMARY
+          fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY

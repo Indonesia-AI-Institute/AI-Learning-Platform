@@ -32,9 +32,6 @@ services:
   # BACKEND API
   # ===================================================
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: ghcr.io/indonesia-ai-institute/ai-learning-platform-api:latest
     container_name: ailearning-api
     restart: unless-stopped
@@ -64,12 +61,6 @@ services:
   # FRONTEND
   # ===================================================
   frontend:
-    build:
-      context: ./src/frontend
-      dockerfile: Dockerfile
-      args:
-        # Di production ganti dengan domain/IP public
-        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
     image: ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:latest
     container_name: ailearning-frontend
     restart: unless-stopped

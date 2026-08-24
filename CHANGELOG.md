@@ -1,12 +1,25 @@
 # CHANGELOG
 
 
+## v1.0.4 (2026-08-24)
+
+### Refactoring
+
+- Add runtime env config for frontend
+  ([`cc9b8ec`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/cc9b8ec71868f530c6dd5167ea3d6387c384ef4a))
+
+
 ## v1.0.3 (2026-06-24)
 
 ### Bug Fixes
 
 - **workflow**: Python semantic release
   ([`d631fa6`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/d631fa640830ce06af0e389bcde4a0be2cb89e12))
+
+### Chores
+
+- Rename dockerfile
+  ([`b5e65ce`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/b5e65cedb2a03b2a96f3c6d078c85992424c518a))
 
 
 ## v1.0.2 (2026-06-23)

@@ -33,10 +33,6 @@ COPY --from=deps /app/.npmrc ./.npmrc
 # Copy source code
 COPY . .
 
-# Build-time env
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-
 # Build Next.js
 RUN pnpm build
 
@@ -59,6 +55,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
+# Entrypoint yang generate env-config.js dari env runtime sebelum server start
+COPY --chown=nextjs:nodejs entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
 USER nextjs
 
 EXPOSE 3000
@@ -66,4 +66,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-CMD ["node", "server.js"]
+ENTRYPOINT ["./entrypoint.sh"]

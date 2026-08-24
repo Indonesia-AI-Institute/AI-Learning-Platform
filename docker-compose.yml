@@ -3,32 +3,6 @@ name: ai-learning-platform
 services:
 
   # ===================================================
-  # DATABASE
-  # ===================================================
-  db:
-    image: postgres:15-alpine
-    container_name: ailearning-db
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    networks:
-      - ai-learning-net
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  # ===================================================
   # BACKEND API
   # ===================================================
   api:
@@ -37,13 +11,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    depends_on:
-      db:
-        condition: service_healthy
     ports:
       - "8000:8000"
     networks:
-      - ai-learning-net
+      - iaii-network
     command: >
       sh -c "
         echo '⏳ Running migrations...' &&
@@ -64,23 +35,17 @@ services:
     image: ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:latest
     container_name: ailearning-frontend
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "3000:3000"
     networks:
-      - ai-learning-net
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      - iaii-network
 
 # ===================================================
 # NETWORKS
 # ===================================================
 networks:
-  ai-learning-net:
+  iaii-network:
+    name: iaii-network
     driver: bridge
-
-# ===================================================
-# VOLUMES
-# ===================================================
-volumes:
-  pgdata:
-    driver: local

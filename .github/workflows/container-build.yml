@@ -121,6 +121,11 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────
   # JOB 3: Build & Push Frontend
+  # NEXT_PUBLIC_API_URL TIDAK lagi dikirim sebagai build-arg di sini.
+  # Value backend URL sekarang dibaca runtime lewat window.__ENV__
+  # (lihat entrypoint.sh di image frontend), jadi image ini
+  # environment-agnostic — sekali build, dipakai di server/domain mana pun,
+  # tinggal beda .env saat docker compose up.
   # ─────────────────────────────────────────────────────────────
   build-frontend:
     name: Build Frontend Image
@@ -173,8 +178,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
-          build-args: |
-            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+          # build-args NEXT_PUBLIC_API_URL dihapus — lihat catatan job di atas.
 
   # ─────────────────────────────────────────────────────────────
   # JOB 4: Summary

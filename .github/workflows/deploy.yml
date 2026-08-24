@@ -1,0 +1,77 @@
+name: Deploy to Production
+
+on:
+  # Jalankan setelah workflow build-and-push selesai di branch main
+  workflow_run:
+    workflows: ["Build & Push to GHCR"]
+    branches: [main]
+    types:
+      - completed
+
+  # Atau trigger manual dengan pilihan tag
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (default: latest)"
+        required: false
+        default: "latest"
+
+jobs:
+  deploy:
+    name: Deploy to Production Server
+    runs-on: ubuntu-latest
+    # Hanya deploy jika build sukses (untuk workflow_run trigger)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
+      # SSH ke server production dan jalankan deploy script
+      # Secrets yang dibutuhkan (set di GitHub repo/org secrets):
+      #   PROD_SSH_HOST     — IP atau domain server
+      #   PROD_SSH_USER     — username SSH (contoh: ubuntu, deploy)
+      #   PROD_SSH_KEY      — private key SSH (isi konten .pem / id_rsa)
+      #   PROD_DEPLOY_PATH  — path ke folder project di server (contoh: /opt/ai-learning)
+      #   CR_PAT            — GitHub Personal Access Token untuk login GHCR di server
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd ${{ secrets.PROD_DEPLOY_PATH }}
+
+            # Pull latest deploy script
+            git pull origin main
+
+            # Beri permission execute
+            chmod +x deploy.sh
+
+            # Jalankan deploy dengan tag yang dipilih
+            export CR_PAT=${{ secrets.CR_PAT }}
+            export GITHUB_ACTOR=${{ github.actor }}
+            ./deploy.sh ${{ steps.tag.outputs.tag }}
+
+      - name: Notify success
+        run: |
+          echo "## 🚀 Deployed to Production" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** \`${{ steps.tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Server:** \`${{ secrets.PROD_SSH_HOST }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${{ vars.PRODUCTION_URL }}" >> $GITHUB_STEP_SUMMARY

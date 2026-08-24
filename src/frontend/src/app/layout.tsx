@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
+import Script from "next/script";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -23,6 +24,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+          <Script src="/env-config.js" strategy="beforeInteractive" />
+      </head>
+
       <body className={geist.className}>
         <Providers>{children}</Providers>
       </body>

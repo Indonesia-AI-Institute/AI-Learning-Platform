@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from backend.utils.role_guard import RoleGuard
-from backend.api.deps import get_db, get_chat_service
+from backend.api.deps import get_db, get_chat_service, get_current_user
 from backend.services.prompt_classification_service import PromptClassificationService
 from backend.llm.services.llm_service import LLMService
 from backend.services.session_service import SessionService
@@ -49,6 +49,7 @@ def get_conversation_service(
 @router.post("/direct/stream")
 async def stream_direct_chat(
     request: ChatRequest,
+    current_user: User = Depends(get_current_user),
     chat_service: ChatService = Depends(get_chat_service),
 ):
     async def event_stream():
@@ -66,6 +67,7 @@ async def stream_direct_chat(
 @router.post("/direct/generate", response_model=ChatResponse)
 async def generate_direct_chat(
     request: ChatRequest,
+    current_user: User = Depends(get_current_user),
     chat_service: ChatService = Depends(get_chat_service),
 ):
     messages = []

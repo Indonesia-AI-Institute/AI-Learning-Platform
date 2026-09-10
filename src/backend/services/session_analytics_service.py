@@ -176,10 +176,13 @@ class SessionAnalyticsService:
             "last_active": last_active,
         }
 
-    async def get_class_analytics(self, class_id: UUID) -> list[dict]:
+    async def get_class_analytics(self, class_id: UUID, teacher_id: UUID) -> list[dict]:
         """
         Per-student analytics summary for all students in a class.
         Teacher uses this to compare prompting behavior across students.
+
+        Scoped to `teacher_id` — a class outside the caller's own courses
+        yields an empty result rather than another teacher's data.
         """
 
         stmt = (
@@ -196,7 +199,7 @@ class SessionAnalyticsService:
             .join(Task, SessionAnalytics.task_id == Task.id)
             .join(Course, Task.course_id == Course.id)
             .join(Class, Course.id == Class.course_id)
-            .where(Class.id == class_id)
+            .where(Class.id == class_id, Course.teacher_id == teacher_id)
             .group_by(SessionAnalytics.user_id)
         )
 
@@ -216,10 +219,13 @@ class SessionAnalyticsService:
             for row in rows
         ]
 
-    async def get_task_analytics(self, task_id: UUID) -> list[dict]:
+    async def get_task_analytics(self, task_id: UUID, teacher_id: UUID) -> list[dict]:
         """
         Per-student analytics for a specific task.
         Teacher uses this to compare how students approached the same task.
+
+        Scoped to `teacher_id` — a task outside the caller's own courses
+        yields an empty result rather than another teacher's data.
         """
 
         stmt = (
@@ -232,7 +238,9 @@ class SessionAnalyticsService:
                 func.coalesce(func.sum(SessionAnalytics.session_duration_seconds), 0),
                 func.max(SessionAnalytics.created_at),
             )
-            .where(SessionAnalytics.task_id == task_id)
+            .join(Task, SessionAnalytics.task_id == Task.id)
+            .join(Course, Task.course_id == Course.id)
+            .where(SessionAnalytics.task_id == task_id, Course.teacher_id == teacher_id)
             .group_by(SessionAnalytics.user_id)
         )
 

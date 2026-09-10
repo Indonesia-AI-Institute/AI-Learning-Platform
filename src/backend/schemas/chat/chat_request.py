@@ -23,6 +23,8 @@ class ChatMessage(BaseModel):
 
     content: str = Field(
         ...,
+        min_length=1,
+        max_length=8000,
         description="Message content text",
         example="Explain machine learning in simple terms."
     )
@@ -36,11 +38,13 @@ class ChatRequest(BaseModel):
 
     messages: List[ChatMessage] = Field(
         ...,
+        max_length=200,
         description="Full conversation history"
     )
 
     system_prompt: Optional[str] = Field(
         None,
+        max_length=4000,
         description="Optional system prompt override"
     )
 

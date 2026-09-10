@@ -25,12 +25,16 @@ async def create_task(
     current_user = Depends(require_teacher)
 ):
     service = TaskService(db)
-
-    return await service.create_task(
-        current_user,
-        course_id,
-        data.model_dump()
-    )
+    try:
+        return await service.create_task(
+            current_user,
+            course_id,
+            data.model_dump()
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 
 @router.get(
@@ -45,13 +49,17 @@ async def get_tasks_by_course(
     current_user = Depends(get_current_user)
 ):
     service = TaskService(db)
-
-    return await service.get_tasks_by_course(
-        current_user,
-        course_id,
-        skip,
-        limit
-    )
+    try:
+        return await service.get_tasks_by_course(
+            current_user,
+            course_id,
+            skip,
+            limit
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 @router.get(
     "/class/{class_id}",
@@ -65,13 +73,17 @@ async def get_tasks_by_class(
     current_user = Depends(get_current_user)
 ):
     service = TaskService(db)
-
-    return await service.get_tasks_by_class(
-        current_user,
-        class_id,
-        skip,
-        limit
-    )
+    try:
+        return await service.get_tasks_by_class(
+            current_user,
+            class_id,
+            skip,
+            limit
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 @router.get(
     "/{task_id}",
@@ -83,8 +95,12 @@ async def get_task_detail(
     current_user = Depends(get_current_user)
 ):
     service = TaskService(db)
-
-    return await service.get_task_detail(current_user, task_id)
+    try:
+        return await service.get_task_detail(current_user, task_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 
 @router.put(
@@ -98,12 +114,16 @@ async def update_task(
     current_user = Depends(require_teacher)
 ):
     service = TaskService(db)
-
-    return await service.update_task(
-        current_user,
-        task_id,
-        data.model_dump(exclude_unset=True)
-    )
+    try:
+        return await service.update_task(
+            current_user,
+            task_id,
+            data.model_dump(exclude_unset=True)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 
 @router.delete(
@@ -116,5 +136,9 @@ async def delete_task(
     current_user = Depends(require_teacher)
 ):
     service = TaskService(db)
-
-    await service.delete_task(current_user, task_id)
+    try:
+        await service.delete_task(current_user, task_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))

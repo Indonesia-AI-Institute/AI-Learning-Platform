@@ -40,6 +40,9 @@ class LLMService:
         return create_llm_provider()
 
     def _check_banlist(self, text: str):
+        if not settings.ENABLE_BANLIST_FILTER:
+            return
+
         is_blocked, keyword = self.banlist_filter.check(text)
         if is_blocked:
             logger.warning(

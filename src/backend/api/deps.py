@@ -12,6 +12,7 @@ from backend.services.chat_service import ChatService
 from backend.db.session import get_db
 from backend.models.user import User, UserRole
 from backend.repositories.user_repository import UserRepository
+from backend.repositories.token_blacklist_repository import TokenBlacklistRepository
 from backend.auth.security import decode_access_token
 
 security = HTTPBearer(auto_error=False)  # auto_error=False supaya tidak langsung 403 jika tidak ada Bearer
@@ -58,6 +59,12 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
+        )
+
+    if await TokenBlacklistRepository(db).is_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
         )
 
     try:

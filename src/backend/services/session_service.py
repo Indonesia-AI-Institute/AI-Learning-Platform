@@ -122,14 +122,17 @@ class SessionService:
         db_session = await self.session_repo.get(session_id)
         if not db_session:
             raise ValueError("Session not found.")
- 
+
         if current_user.role == UserRole.STUDENT:
             if db_session.student_id != current_user.id:
                 raise PermissionError("Access denied.")
- 
+
         elif current_user.role == UserRole.TEACHER:
-            pass  # teacher access validated at route level
- 
+            db_task = await self.task_repo.get(db_session.task_id)
+            db_course = await self.course_repo.get(db_task.course_id) if db_task else None
+            if not db_course or db_course.teacher_id != current_user.id:
+                raise PermissionError("Access denied.")
+
         return db_session
 
     async def end_session(

@@ -16,6 +16,11 @@ from backend.auth.security import (
     create_access_token,
 )
 
+# Precomputed once and verified against on every login where the email
+# doesn't exist, so a bcrypt comparison always runs either way — otherwise
+# response timing leaks which emails are registered.
+_DUMMY_PASSWORD_HASH = hash_password("dummy-password-for-timing-equalization")
+
 
 class AuthService:
 
@@ -53,6 +58,7 @@ class AuthService:
         user = await self.user_repo.get_by_email(data.email)
 
         if not user:
+            verify_password(data.password, _DUMMY_PASSWORD_HASH)
             raise ValueError("Invalid email or password")
 
         if user.is_deleted:

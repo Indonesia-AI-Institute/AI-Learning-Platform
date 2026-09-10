@@ -1,10 +1,10 @@
 from typing import Optional
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class ClassCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
+    name: str = Field(..., max_length=255)
+    description: Optional[str] = Field(None, max_length=5000)
     course_id: str
     is_active: bool = True
  

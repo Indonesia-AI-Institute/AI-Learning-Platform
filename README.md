@@ -18,6 +18,7 @@ A full-stack AI-powered learning platform that enables teachers to manage course
   - [Environment Variables](#environment-variables)
   - [LLM Provider Configuration](#llm-provider-configuration)
   - [Database Migrations](#database-migrations)
+  - [Testing](#testing)
   - [API Overview](#api-overview)
   - [Troubleshooting](#troubleshooting)
   - [License](#license)
@@ -366,6 +367,28 @@ When using Docker:
 ```bash
 docker compose exec api alembic -c backend/alembic.ini revision --autogenerate -m "describe your change"
 docker compose exec api alembic -c backend/alembic.ini upgrade head
+```
+
+---
+
+## Testing
+
+Integration tests need a real Postgres — the models use `sqlalchemy.dialects.postgresql.UUID`, which SQLite can't run. Point them at any disposable Postgres instance (a local one, or `docker run -d -p 5433:5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test postgres:15-alpine`); each test run drops and recreates the schema, so nothing else should be using that database.
+
+```bash
+cd src/backend
+uv sync --extra dev
+cd ../..
+
+# Run from the repo root, with PYTHONPATH=src, for the same reason
+# uvicorn needs it locally — see "Running Locally without Docker" above.
+# Defaults to postgresql+asyncpg://test:test@localhost:5433/test —
+# override with your own DATABASE_URL if that doesn't match your setup
+PYTHONPATH=src uv run --project src/backend pytest src/backend/tests
+
+# Just unit tests (no DB needed) or just integration tests
+PYTHONPATH=src uv run --project src/backend pytest src/backend/tests/unit
+PYTHONPATH=src uv run --project src/backend pytest src/backend/tests/integration
 ```
 
 ---

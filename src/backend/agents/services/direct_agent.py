@@ -58,14 +58,3 @@ class DirectTutorAgent(BaseAgent):
             **kwargs,
         ):
             yield token
-
-    def _inject_system_prompt(
-        self,
-        messages: List[Dict[str, str]],
-        system_prompt: str,
-    ) -> List[Dict[str, str]]:
-
-        if messages and messages[0].get("role") == "system":
-            return messages
-
-        return [{"role": "system", "content": system_prompt}] + messages

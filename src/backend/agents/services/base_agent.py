@@ -39,6 +39,18 @@ class BaseAgent:
             "max_tokens": self.model_config.get("max_tokens"),
         }
 
+    def _inject_system_prompt(
+        self,
+        messages: List[Dict[str, str]],
+        system_prompt: str,
+    ) -> List[Dict[str, str]]:
+        # Always prepend this stage's own system prompt — a caller-supplied
+        # "system" message earlier in `messages` must never be able to
+        # replace it, only follow it. Shared here (not duplicated per
+        # subclass) specifically so a fix here can't diverge between agents
+        # the way it once did.
+        return [{"role": "system", "content": system_prompt}] + messages
+
     async def generate(
         self,
         messages: List[Dict[str, str]],

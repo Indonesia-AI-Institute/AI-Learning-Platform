@@ -34,11 +34,16 @@ async def lifespan(app: FastAPI):
     logger.info("🛑 Shutting down backend")
 
 
+_is_production = settings.ENVIRONMENT == "production"
+
 app = FastAPI(
     title="AI Learning Platform API",
     description="Backend API for AI Learning Platform Chatbot",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
+    openapi_url=None if _is_production else "/openapi.json",
 )
 
 
@@ -59,5 +64,5 @@ async def root():
     return {
         "service": "AI Learning Platform Backend",
         "status": "running",
-        "docs": "/docs",
+        "docs": app.docs_url,
     }

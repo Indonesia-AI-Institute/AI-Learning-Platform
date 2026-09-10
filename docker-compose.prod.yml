@@ -9,9 +9,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env.be
-    ports:
-      # Host:container — container side must match PORT in .env.be if changed
-      - "8000:8000"
     networks:
       - ai-learning-net
 

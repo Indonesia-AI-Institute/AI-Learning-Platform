@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List
 
 from dotenv import load_dotenv
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -50,6 +51,16 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str = ""
 
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError(
+                "SECRET_KEY must be a random string of at least 32 characters "
+                "(it signs every JWT) — set it in .env.be, see .env.be.example."
+            )
+        return v
+
     DATABASE_URL: str
 
     DEFAULT_LLM_PROVIDER: str = "openai"
@@ -89,7 +100,9 @@ class Settings(BaseSettings):
     ENABLE_RAG: bool = False
     ENABLE_WEBSEARCH: bool = False
 
-    CORS_ORIGINS: List[str] = ["*"]
+    # Required, no wildcard default — an unset/wildcard CORS_ORIGINS would
+    # otherwise fail open to any origin.
+    CORS_ORIGINS: List[str]
 
     LOG_LEVEL: str = "INFO"
 

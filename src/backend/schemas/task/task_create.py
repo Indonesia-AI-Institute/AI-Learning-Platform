@@ -4,12 +4,12 @@ Title wajib diisi dan tidak boleh berupa string kosong/whitespace.
 
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class TaskCreate(BaseModel):
-    title: str
-    description: Optional[str] = None
+    title: str = Field(..., max_length=255)
+    description: Optional[str] = Field(None, max_length=5000)
     due_date: Optional[datetime] = None
     is_active: bool = True
 

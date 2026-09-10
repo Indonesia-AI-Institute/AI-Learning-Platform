@@ -29,8 +29,13 @@ dependencies = [
     # Performance
     "orjson==3.11.7",
     # Security
-    "python-jose==3.3.0",
+    "python-jose==3.4.0",
     "passlib[bcrypt]==1.7.4",
+    # Pinned: passlib 1.7.4's own bcrypt self-test crashes on bcrypt 5.x
+    # (bcrypt now hard-rejects >72-byte inputs instead of the old silent
+    # truncation passlib's probe expects) — passlib is unmaintained, so this
+    # is a hard ceiling until the auth layer moves off it.
+    "bcrypt==4.0.1",
     "cryptography==46.0.5",
     "python-semantic-release>=9.0.0",
 ]
@@ -42,12 +47,16 @@ dev = [
     "python-semantic-release>=9.0.0"
 ]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
 
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-# The app runs via PYTHONPATH + "src.backend.*" imports, not as an installed
+# The app runs via PYTHONPATH + "backend.*" imports, not as an installed
 # package, so uv should only install dependencies, never build/install this.
 [tool.uv]
 package = false

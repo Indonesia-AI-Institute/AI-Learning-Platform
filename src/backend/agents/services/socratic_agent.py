@@ -149,17 +149,6 @@ class SocraticTutorAgent(BaseAgent):
         content = self._extract_content(reflection_response)
         return self._parse_reflection(content)
 
-    def _inject_system_prompt(
-        self,
-        messages: List[Dict[str, str]],
-        system_prompt: str,
-    ) -> List[Dict[str, str]]:
-
-        if messages and messages[0].get("role") == "system":
-            return messages
-
-        return [{"role": "system", "content": system_prompt}] + messages
-
     def _extract_content(self, response: Dict[str, Any]) -> str:
 
         if "choices" in response:

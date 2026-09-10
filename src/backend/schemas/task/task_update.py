@@ -6,12 +6,12 @@ is_active wajib ada agar toggle active/inactive berfungsi.
 
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class TaskUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title: Optional[str] = Field(None, max_length=255)
+    description: Optional[str] = Field(None, max_length=5000)
     due_date: Optional[datetime] = None
     is_active: Optional[bool] = None       # FIX: wajib ada untuk toggle
     class_id: Optional[str] = None

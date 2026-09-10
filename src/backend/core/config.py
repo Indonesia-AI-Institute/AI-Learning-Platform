@@ -1,17 +1,15 @@
-"""
-config.py
-=========
-"""
-
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from dotenv import load_dotenv
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def find_project_root(start_path: Path) -> Path:
-    markers = [".git", "pyproject.toml", "requirements.txt", ".env", ".env_example"]
+    # ".git" is the only reliable repo-root marker — pyproject.toml now lives
+    # in src/backend, not the repo root, so it can't be used to detect it.
+    markers = [".git"]
     current = start_path.resolve()
     while current != current.parent:
         if any((current / marker).exists() for marker in markers):
@@ -24,9 +22,9 @@ CURRENT_FILE = Path(__file__).resolve()
 PROJECT_ROOT = find_project_root(CURRENT_FILE)
 
 ENV_CANDIDATES = [
+    PROJECT_ROOT / ".env.be",
     PROJECT_ROOT / ".env",
-    PROJECT_ROOT / "src" / ".env",
-    CURRENT_FILE.parents[2] / ".env",
+    CURRENT_FILE.parents[1] / ".env",
 ]
 
 
@@ -43,52 +41,40 @@ LOADED_ENV_PATH = load_env_file()
 
 class Settings(BaseSettings):
 
-    # =====================================================
-    # APP INFO
-    # =====================================================
     APP_NAME: str = "AI Learning Platform Backend"
     APP_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
 
-    # =====================================================
-    # SERVER
-    # =====================================================
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    # =====================================================
-    # SECURITY
-    # =====================================================
     SECRET_KEY: str = ""
 
-    # =====================================================
-    # DATABASE
-    # =====================================================
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError(
+                "SECRET_KEY must be a random string of at least 32 characters "
+                "(it signs every JWT) — set it in .env.be, see .env.be.example."
+            )
+        return v
+
     DATABASE_URL: str
 
-    # =====================================================
-    # LLM PROVIDER SELECTION
-    # =====================================================
     DEFAULT_LLM_PROVIDER: str = "openai"
     DEFAULT_LLM_MODEL: str = "gpt-4o"
     DEFAULT_TEMPERATURE: float = 0.7
     DEFAULT_MAX_TOKENS: int = 2048
     DEFAULT_TIMEOUT: int = 60
 
-    # =====================================================
-    # OPENAI
-    # =====================================================
     OPENAI_API_KEY: str | None = None
     OPENAI_API_BASE: str = "https://api.openai.com/v1"
 
-    # =====================================================
-    # OPENROUTER
-    # =====================================================
     OPENROUTER_API_KEY: str | None = None
     OPENROUTER_API_BASE: str = "https://openrouter.ai/api/v1"
 
-    # OpenRouter provider routing
     # Comma-separated list: "DeepInfra,SiliconFlow,Chutes"
     # Leave empty to let OpenRouter auto-select cheapest/fastest
     OPENROUTER_PROVIDER_ORDER: str | None = None
@@ -99,49 +85,27 @@ class Settings(BaseSettings):
     # Only use providers in OPENROUTER_PROVIDER_ORDER, no fallback
     OPENROUTER_REQUIRE_PROVIDER: bool = False
 
-    # =====================================================
-    # GEMINI
-    # =====================================================
     GEMINI_API_KEY: str | None = None
     GEMINI_API_BASE: str = "https://generativelanguage.googleapis.com/v1beta/openai"
 
-    # =====================================================
-    # ANTHROPIC
-    # =====================================================
     ANTHROPIC_API_KEY: str | None = None
 
-    # =====================================================
-    # CUSTOM PROVIDER
-    # =====================================================
     CUSTOM_LLM_API_KEY: str | None = None
     CUSTOM_LLM_BASE_URL: str | None = None
 
-    # =====================================================
-    # STREAMING
-    # =====================================================
     STREAM_TIMEOUT_SECONDS: int = 60
     STREAM_KEEP_ALIVE: bool = True
     ENABLE_STREAMING: bool = True
 
-    # =====================================================
-    # FEATURE FLAGS
-    # =====================================================
     ENABLE_RAG: bool = False
     ENABLE_WEBSEARCH: bool = False
 
-    # =====================================================
-    # CORS
-    # =====================================================
-    CORS_ORIGINS: List[str] = ["*"]
+    # Required, no wildcard default — an unset/wildcard CORS_ORIGINS would
+    # otherwise fail open to any origin.
+    CORS_ORIGINS: List[str]
 
-    # =====================================================
-    # LOGGING
-    # =====================================================
     LOG_LEVEL: str = "INFO"
 
-    # =====================================================
-    # GUARDRAIL
-    # =====================================================
     ENABLE_BANLIST_FILTER: bool = True
     BANNED_KEYWORDS: list[str] = ["illegal", "exploit", "bypass"]
 

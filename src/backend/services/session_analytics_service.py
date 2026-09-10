@@ -1,9 +1,5 @@
 """
-services/session_analytics_service.py
-=====================================
-
-Analytics for chat sessions.
-Analytics are finalized when a session is ended.
+Analytics for chat sessions. Analytics are finalized when a session is ended.
 """
 
 from uuid import UUID
@@ -11,23 +7,18 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
-from src.backend.models.session_analytics import SessionAnalytics
-from src.backend.models.chat_session import ChatSession
-from src.backend.models.chat_history import ChatHistory, MessageRole
-from src.backend.models.task import Task
-from src.backend.models.course import Course
-from src.backend.models.class_model import Class
-from src.backend.models.enrollment import Enrollment
+from backend.models.session_analytics import SessionAnalytics
+from backend.models.chat_session import ChatSession
+from backend.models.chat_history import ChatHistory, MessageRole
+from backend.models.task import Task
+from backend.models.course import Course
+from backend.models.class_model import Class
 
 
 class SessionAnalyticsService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-
-    # =========================
-    # FINALIZE (called on end_session)
-    # =========================
 
     async def finalize_session_analytics(
         self,
@@ -143,10 +134,6 @@ class SessionAnalyticsService:
 
         return analytics
 
-    # =========================
-    # GET MY ANALYTICS (Student)
-    # =========================
-
     async def get_user_analytics(self, user_id: UUID) -> dict:
         """
         Aggregated analytics for a single student across all sessions.
@@ -189,14 +176,13 @@ class SessionAnalyticsService:
             "last_active": last_active,
         }
 
-    # =========================
-    # GET CLASS ANALYTICS (Teacher)
-    # =========================
-
-    async def get_class_analytics(self, class_id: UUID) -> list[dict]:
+    async def get_class_analytics(self, class_id: UUID, teacher_id: UUID) -> list[dict]:
         """
         Per-student analytics summary for all students in a class.
         Teacher uses this to compare prompting behavior across students.
+
+        Scoped to `teacher_id` — a class outside the caller's own courses
+        yields an empty result rather than another teacher's data.
         """
 
         stmt = (
@@ -213,7 +199,7 @@ class SessionAnalyticsService:
             .join(Task, SessionAnalytics.task_id == Task.id)
             .join(Course, Task.course_id == Course.id)
             .join(Class, Course.id == Class.course_id)
-            .where(Class.id == class_id)
+            .where(Class.id == class_id, Course.teacher_id == teacher_id)
             .group_by(SessionAnalytics.user_id)
         )
 
@@ -233,14 +219,13 @@ class SessionAnalyticsService:
             for row in rows
         ]
 
-    # =========================
-    # GET TASK ANALYTICS (Teacher)
-    # =========================
-
-    async def get_task_analytics(self, task_id: UUID) -> list[dict]:
+    async def get_task_analytics(self, task_id: UUID, teacher_id: UUID) -> list[dict]:
         """
         Per-student analytics for a specific task.
         Teacher uses this to compare how students approached the same task.
+
+        Scoped to `teacher_id` — a task outside the caller's own courses
+        yields an empty result rather than another teacher's data.
         """
 
         stmt = (
@@ -253,7 +238,9 @@ class SessionAnalyticsService:
                 func.coalesce(func.sum(SessionAnalytics.session_duration_seconds), 0),
                 func.max(SessionAnalytics.created_at),
             )
-            .where(SessionAnalytics.task_id == task_id)
+            .join(Task, SessionAnalytics.task_id == Task.id)
+            .join(Course, Task.course_id == Course.id)
+            .where(SessionAnalytics.task_id == task_id, Course.teacher_id == teacher_id)
             .group_by(SessionAnalytics.user_id)
         )
 
@@ -272,10 +259,6 @@ class SessionAnalyticsService:
             }
             for row in rows
         ]
-
-    # =========================
-    # GET SESSION DETAIL ANALYTICS (Teacher)
-    # =========================
 
     async def get_session_analytics(self, session_id: UUID) -> dict | None:
         """

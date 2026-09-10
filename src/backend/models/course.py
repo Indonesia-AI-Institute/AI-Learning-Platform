@@ -1,19 +1,11 @@
-"""
-models/course.py
-================
-
-Course Domain Model
-"""
-
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from src.backend.db.base import Base
+from backend.db.base import Base
 
 
 class Course(Base):

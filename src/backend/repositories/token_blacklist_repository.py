@@ -1,14 +1,11 @@
 """
-token_blacklist_repository.py
-=============================
-
 Store blacklisted JWT tokens.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from src.backend.models.token_blacklist import TokenBlacklist
+from backend.models.token_blacklist import TokenBlacklist
 
 
 class TokenBlacklistRepository:

@@ -21,10 +21,6 @@ class ContextWindowService:
         self.max_tokens = max_tokens
         self.reserve_tokens = reserve_tokens
 
-    # =================================
-    # SIMPLE TOKEN ESTIMATION
-    # =================================
-
     def estimate_tokens(self, text: str) -> int:
         """
         Rough token estimation.
@@ -32,10 +28,6 @@ class ContextWindowService:
         """
 
         return max(1, len(text) // 4)
-
-    # =================================
-    # TRIM CONTEXT
-    # =================================
 
     def trim_messages(
         self,

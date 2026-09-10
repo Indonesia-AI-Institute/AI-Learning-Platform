@@ -1,15 +1,8 @@
-"""
-agent_registry.py
-=================
+from typing import Dict
 
-Registry + factory for all available agents.
-"""
-
-from typing import Dict, Type
-
-from src.backend.agents.services.direct_agent import DirectTutorAgent
-from src.backend.agents.services.socratic_agent import SocraticTutorAgent
-from src.backend.agents.services.base_agent import BaseAgent
+from backend.agents.services.direct_agent import DirectTutorAgent
+from backend.agents.services.socratic_agent import SocraticTutorAgent
+from backend.agents.services.base_agent import BaseAgent
 
 from pathlib import Path
 
@@ -35,8 +28,6 @@ class AgentRegistry:
             },
         }
 
-    # -----------------------------------------------------
-
     def get_agent(self, agent_id: str) -> BaseAgent:
         """
         Return initialized agent instance.
@@ -51,8 +42,6 @@ class AgentRegistry:
             agent_config_path=str(agent_info["config_path"]),
             llm_service=self.llm_service,
         )
-
-    # -----------------------------------------------------
 
     def list_agents(self):
         return list(self._registry.keys())

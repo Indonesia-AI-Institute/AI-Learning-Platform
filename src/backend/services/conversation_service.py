@@ -1,23 +1,17 @@
-"""
-conversation_service.py
-===============
-"""
-
 import asyncio
 from typing import Dict, Any, AsyncGenerator
 from uuid import UUID
 import time
 
-from src.backend.models.user import User
-from src.backend.models.chat_history import ChatHistory
+from backend.models.user import User
 
-from src.backend.services.session_service import SessionService
-from src.backend.services.chat_history_service import ChatHistoryService
-from src.backend.services.chat_service import ChatService
-from src.backend.services.prompt_classification_service import PromptClassificationService
-from src.backend.agents.services.prompt_classifier_agent import PromptClassifierAgent
-from src.backend.llm.services.llm_service import LLMService
-from src.backend.observability.logging.logger import get_logger
+from backend.services.session_service import SessionService
+from backend.services.chat_history_service import ChatHistoryService
+from backend.services.chat_service import ChatService
+from backend.services.prompt_classification_service import PromptClassificationService
+from backend.agents.services.prompt_classifier_agent import PromptClassifierAgent
+from backend.llm.services.llm_service import LLMService
+from backend.observability.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -40,10 +34,6 @@ class ConversationService:
         self.chat_service = chat_service
         self.classification_service = classification_service
         self.classifier_agent = PromptClassifierAgent(llm_service)
-
-    # =====================================================
-    # INTERNAL: classify and persist (fire-and-forget safe)
-    # =====================================================
 
     async def _classify_and_save(
         self,
@@ -72,10 +62,6 @@ class ConversationService:
                 extra={"event": "conversation.classification_failed", "error": str(e)},
             )
 
-    # =====================================================
-    # NON STREAM RESPONSE
-    # =====================================================
-
     async def send_message(
         self,
         current_user: User,
@@ -86,7 +72,6 @@ class ConversationService:
         **agent_kwargs: Any,
     ) -> Dict[str, Any]:
 
-        # 1️⃣ Validate session
         db_session = await self.session_service.get_session_detail(
             current_user=current_user,
             session_id=session_id,
@@ -95,14 +80,12 @@ class ConversationService:
         if not db_session.is_active:
             raise ValueError("Session is not active.")
 
-        # 2️⃣ Save USER message
         user_message = await self.history_service.add_user_message(
             session_id=session_id,
             user_id=current_user.id,
             content=content,
         )
 
-        # 3️⃣ Build context
         messages = await self.history_service.build_llm_context(
             session_id=session_id,
             include_system_prompt=system_prompt,
@@ -110,7 +93,6 @@ class ConversationService:
 
         start_time = time.time()
 
-        # 4️⃣ Call AI + classifier in parallel
         ai_response, _ = await asyncio.gather(
             self.chat_service.generate(
                 agent_type=agent_type,
@@ -130,7 +112,6 @@ class ConversationService:
         assistant_content = ai_response.get("content")
         usage = ai_response.get("usage", {})
 
-        # 5️⃣ Save assistant response
         assistant_message = await self.history_service.create_assistant_message(
             session_id=session_id,
             model_name=ai_response.get("model"),
@@ -148,10 +129,6 @@ class ConversationService:
 
         return ai_response
 
-    # =====================================================
-    # STREAM RESPONSE
-    # =====================================================
-
     async def stream_message(
         self,
         current_user: User,
@@ -162,7 +139,6 @@ class ConversationService:
         **agent_kwargs: Any,
     ) -> AsyncGenerator[str, None]:
 
-        # 1️⃣ Validate session
         db_session = await self.session_service.get_session_detail(
             current_user=current_user,
             session_id=session_id,
@@ -171,27 +147,25 @@ class ConversationService:
         if not db_session.is_active:
             raise ValueError("Session is not active.")
 
-        # 2️⃣ Save USER message
         user_message = await self.history_service.add_user_message(
             session_id=session_id,
             user_id=current_user.id,
             content=content,
         )
 
-        # 3️⃣ Build context
         messages = await self.history_service.build_llm_context(
             session_id=session_id,
             include_system_prompt=system_prompt,
         )
 
-        # 4️⃣ Create assistant message placeholder
         assistant_message = await self.history_service.create_assistant_message(
             session_id=session_id,
             model_name=None,
             provider_name=None,
         )
 
-        # 5️⃣ Fire classifier in background (non-blocking)
+        # Fire-and-forget: classification runs in the background so it
+        # doesn't block the token stream.
         asyncio.create_task(
             self._classify_and_save(
                 content=content,
@@ -211,7 +185,6 @@ class ConversationService:
         provider_name = None
         BUFFER_SIZE = 20
 
-        # 6️⃣ Stream AI
         async for event in self.chat_service.stream_generate(
             agent_type=agent_type,
             messages=messages,
@@ -253,7 +226,6 @@ class ConversationService:
 
         latency = int((time.time() - start_time) * 1000)
 
-        # 7️⃣ Finalize assistant message
         await self.history_service.finalize_assistant_message(
             message_id=assistant_message.id,
             content=full_response,

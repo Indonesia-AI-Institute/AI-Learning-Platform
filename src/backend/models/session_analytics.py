@@ -1,29 +1,21 @@
 """
-models/session_analytics.py
-===========================
-
 Aggregated analytics per chat session.
 Populated when session is ended via finalize_session_analytics().
 """
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Float, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from src.backend.db.base import Base
+from backend.db.base import Base
 
 
 class SessionAnalytics(Base):
     __tablename__ = "session_analytics"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    # =========================
-    # REFERENCES
-    # =========================
 
     chat_session_id = Column(
         UUID(as_uuid=True),
@@ -44,17 +36,9 @@ class SessionAnalytics(Base):
         nullable=False,
     )
 
-    # =========================
-    # TOKEN USAGE
-    # =========================
-
     prompt_tokens = Column(Integer, default=0, nullable=False)
     completion_tokens = Column(Integer, default=0, nullable=False)
     total_tokens = Column(Integer, default=0, nullable=False)
-
-    # =========================
-    # PROMPTING BEHAVIOR
-    # =========================
 
     total_prompts = Column(
         Integer,
@@ -77,22 +61,10 @@ class SessionAnalytics(Base):
         comment="Duration from first message to last message in seconds",
     )
 
-    # =========================
-    # LLM METADATA
-    # =========================
-
     finish_reason = Column(String, nullable=True)
-
-    # =========================
-    # TIMESTAMP
-    # =========================
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    # =========================
-    # RELATIONSHIPS
-    # =========================
 
     session = relationship("ChatSession", back_populates="analytics")
     user = relationship("User")

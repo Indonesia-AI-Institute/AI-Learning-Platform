@@ -1,5 +1,5 @@
-from src.backend.db.base import Base
-from src.backend.db.session import engine
+from backend.db.base import Base
+from backend.db.session import engine
 
 
 async def init_db():

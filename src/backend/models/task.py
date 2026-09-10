@@ -1,6 +1,4 @@
 """
-models/task.py
-==============
 Tambah kolom is_active yang sebelumnya tidak ada.
 Ini adalah root cause dari semua bug:
 - Task list hilang (500 dari auto_deactivate_overdue)
@@ -8,12 +6,11 @@ Ini adalah root cause dari semua bug:
 - Toggle active/inactive tidak berfungsi
 """
 
-from datetime import datetime
 from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 
-from src.backend.models.base import BaseModel
+from backend.models.base import BaseModel
 
 
 class Task(BaseModel):
@@ -41,10 +38,6 @@ class Task(BaseModel):
 
     # Kolom yang hilang — ini root cause semua bug
     is_active = Column(Boolean, default=True, nullable=False)
-
-    # ─────────────────────────────
-    # RELATIONSHIPS
-    # ─────────────────────────────
 
     classes = relationship(
         "Class",

@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import Column, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 
-from src.backend.db.base import Base
+from backend.db.base import Base
 
 
 class TokenBlacklist(Base):

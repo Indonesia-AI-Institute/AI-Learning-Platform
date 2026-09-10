@@ -58,8 +58,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          semantic-release version --no-vcs-release
-          semantic-release publish
+          semantic-release --config src/backend/pyproject.toml version --no-vcs-release
+          semantic-release --config src/backend/pyproject.toml publish
 
   # ─────────────────────────────────────────────────────────────
   # JOB 2: Build & Push Backend API
@@ -110,8 +110,8 @@ jobs:
         id: push
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./Dockerfile
+          context: ./src/backend
+          file: ./src/backend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}

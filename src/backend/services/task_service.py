@@ -4,14 +4,14 @@ from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.models.task import Task
-from src.backend.models.user import User, UserRole
+from backend.models.task import Task
+from backend.models.user import User, UserRole
 
-from src.backend.repositories.task_repository import TaskRepository
-from src.backend.repositories.course_repository import CourseRepository
-from src.backend.repositories.class_repository import ClassRepository
-from src.backend.repositories.enrollment_repository import EnrollmentRepository
-from src.backend.schemas.task.task_response import TaskResponse, ClassInfo
+from backend.repositories.task_repository import TaskRepository
+from backend.repositories.course_repository import CourseRepository
+from backend.repositories.class_repository import ClassRepository
+from backend.repositories.enrollment_repository import EnrollmentRepository
+from backend.schemas.task.task_response import TaskResponse, ClassInfo
 
 
 class TaskService:
@@ -21,10 +21,6 @@ class TaskService:
         self.course_repo = CourseRepository(db)
         self.class_repo = ClassRepository(db)
         self.enroll_repo = EnrollmentRepository(db)
-
-    # =========================
-    # INTERNAL: Find enrolled class for student in a course
-    # =========================
 
     async def _get_enrolled_class(
         self,
@@ -40,13 +36,9 @@ class TaskService:
             if enrollment:
                 return cls
         return None
-    
-    # =========================
-    # INTERNAL: Auto-deactivate tasks past due date
-    # Called before returning tasks to any user.
-    # Teacher can re-activate manually via update_task.
-    # =========================
- 
+
+    # Called before returning tasks to any user. Teacher can re-activate
+    # manually via update_task.
     async def _auto_deactivate_overdue(self, tasks: List[Task]) -> List[Task]:
         """
         Jika task masih aktif tapi due_date sudah lewat,
@@ -60,14 +52,9 @@ class TaskService:
                 and task.due_date is not None
                 and task.due_date < now
             ):
-                # Deactivate — simpan ke DB
                 task = await self.task_repo.update(task, {"is_active": False})
             result.append(task)
         return result
-
-    # =========================
-    # TaskResponse with class info
-    # =========================
 
     async def _build_response(
         self,
@@ -91,10 +78,6 @@ class TaskService:
             class_info=class_info,
         )
 
-    # =========================
-    # CREATE TASK (Teacher Only)
-    # =========================
-
     async def create_task(
         self,
         current_user: User,
@@ -114,10 +97,6 @@ class TaskService:
 
         data["course_id"] = course_id
         return await self.task_repo.create(Task(**data))
-
-    # =========================
-    # GET TASKS BY COURSE
-    # =========================
 
     async def get_tasks_by_course(
         self,
@@ -148,10 +127,6 @@ class TaskService:
 
         tasks = await self.task_repo.get_by_course(course_id, skip, limit)
         return [await self._build_response(t, enrolled_cls.id) for t in tasks]
-
-    # =========================
-    # GET TASKS BY CLASS
-    # =========================
 
     async def get_tasks_by_class(
         self,
@@ -187,10 +162,6 @@ class TaskService:
         tasks = await self.task_repo.get_by_course(course.id, skip, limit)
         return [await self._build_response(t, class_id) for t in tasks]
 
-    # =========================
-    # TASK DETAIL
-    # =========================
-
     async def get_task_detail(
         self,
         current_user: User,
@@ -218,10 +189,6 @@ class TaskService:
 
         return await self._build_response(task, enrolled_cls.id)
 
-    # =========================
-    # UPDATE TASK (Teacher Only)
-    # =========================
-
     async def update_task(
         self,
         current_user: User,
@@ -238,10 +205,6 @@ class TaskService:
             raise PermissionError("You do not own this task.")
 
         return await self.task_repo.update(task, data)
-
-    # =========================
-    # DELETE TASK (Teacher Only)
-    # =========================
 
     async def delete_task(
         self,

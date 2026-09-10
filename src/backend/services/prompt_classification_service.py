@@ -1,19 +1,13 @@
-"""
-services/prompt_classification_service.py
-==========================================
-"""
-
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, Integer
 
-from src.backend.models.prompt_classification import PromptClassification
-from src.backend.models.chat_session import ChatSession
-from src.backend.models.task import Task
-from src.backend.models.course import Course
-from src.backend.models.class_model import Class
-from src.backend.observability.logging.logger import get_logger
+from backend.models.prompt_classification import PromptClassification
+from backend.models.task import Task
+from backend.models.course import Course
+from backend.models.class_model import Class
+from backend.observability.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -22,10 +16,6 @@ class PromptClassificationService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-
-    # =========================
-    # SAVE CLASSIFICATION
-    # =========================
 
     async def save_classification(
         self,
@@ -56,10 +46,6 @@ class PromptClassificationService:
         await self.db.commit()
         await self.db.refresh(classification)
         return classification
-
-    # =========================
-    # AGGREGATE QUERY HELPER
-    # =========================
 
     def _build_aggregate_select(self):
         """Build reusable aggregate select for classification stats."""
@@ -98,57 +84,58 @@ class PromptClassificationService:
 
         return result
 
-    # =========================
-    # GET BY TASK
-    # =========================
-
-    async def get_by_task(self, task_id: UUID) -> list[dict]:
+    async def get_by_task(self, task_id: UUID, teacher_id: UUID) -> list[dict]:
+        """Scoped to `teacher_id` — a task outside the caller's own courses
+        yields an empty result rather than another teacher's data."""
         stmt = (
             self._build_aggregate_select()
-            .where(PromptClassification.task_id == task_id)
+            .join(Task, PromptClassification.task_id == Task.id)
+            .join(Course, Task.course_id == Course.id)
+            .where(PromptClassification.task_id == task_id, Course.teacher_id == teacher_id)
             .group_by(PromptClassification.student_id)
         )
         result = await self.db.execute(stmt)
         return [self._row_to_dict(row) for row in result.all()]
 
-    # =========================
-    # GET BY CLASS
-    # =========================
-
-    async def get_by_class(self, class_id: UUID) -> list[dict]:
+    async def get_by_class(self, class_id: UUID, teacher_id: UUID) -> list[dict]:
+        """Scoped to `teacher_id` — a class outside the caller's own courses
+        yields an empty result rather than another teacher's data."""
         stmt = (
             self._build_aggregate_select()
             .join(Task, PromptClassification.task_id == Task.id)
             .join(Course, Task.course_id == Course.id)
             .join(Class, Course.id == Class.course_id)
-            .where(Class.id == class_id)
+            .where(Class.id == class_id, Course.teacher_id == teacher_id)
             .group_by(PromptClassification.student_id)
         )
         result = await self.db.execute(stmt)
         return [self._row_to_dict(row) for row in result.all()]
 
-    # =========================
-    # GET BY COURSE
-    # =========================
-
-    async def get_by_course(self, course_id: UUID) -> list[dict]:
+    async def get_by_course(self, course_id: UUID, teacher_id: UUID) -> list[dict]:
+        """Scoped to `teacher_id` — a course the caller doesn't teach
+        yields an empty result rather than another teacher's data."""
         stmt = (
             self._build_aggregate_select()
             .join(Task, PromptClassification.task_id == Task.id)
-            .where(Task.course_id == course_id)
+            .join(Course, Task.course_id == Course.id)
+            .where(Task.course_id == course_id, Course.teacher_id == teacher_id)
             .group_by(PromptClassification.student_id)
         )
         result = await self.db.execute(stmt)
         return [self._row_to_dict(row) for row in result.all()]
 
-    # =========================
-    # GET BY STUDENT
-    # =========================
-
-    async def get_by_student(self, student_id: UUID) -> list[dict]:
+    async def get_by_student(self, student_id: UUID, teacher_id: UUID) -> list[dict]:
+        """Scoped to `teacher_id` — only classifications from tasks in the
+        caller's own courses count, so a student the caller doesn't teach
+        yields no data rather than another teacher's student data."""
         stmt = (
             self._build_aggregate_select()
-            .where(PromptClassification.student_id == student_id)
+            .join(Task, PromptClassification.task_id == Task.id)
+            .join(Course, Task.course_id == Course.id)
+            .where(
+                PromptClassification.student_id == student_id,
+                Course.teacher_id == teacher_id,
+            )
             .group_by(PromptClassification.student_id)
         )
         result = await self.db.execute(stmt)
@@ -156,10 +143,6 @@ class PromptClassificationService:
         if not rows:
             return []
         return [self._row_to_dict(rows[0])]
-
-    # =========================
-    # GET MY OWN (student view)
-    # =========================
 
     async def get_my_classification(self, student_id: UUID) -> dict | None:
         stmt = (

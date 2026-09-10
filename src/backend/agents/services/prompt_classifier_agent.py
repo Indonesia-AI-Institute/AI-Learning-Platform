@@ -1,7 +1,4 @@
 """
-agents/services/prompt_classifier_agent.py
-==========================================
-
 Classifies student prompts into predefined categories.
 Runs in parallel with chat response — does NOT affect chat latency.
 """
@@ -9,8 +6,8 @@ Runs in parallel with chat response — does NOT affect chat latency.
 import json
 from typing import Dict
 
-from src.backend.llm.services.llm_service import LLMService
-from src.backend.observability.logging.logger import get_logger
+from backend.llm.services.llm_service import LLMService
+from backend.observability.logging.logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -29,23 +29,10 @@ htmlcov/
 .gitignore
 
 # Docker
-docker-compose*.yml
 Dockerfile*
 
-# Frontend
-src/frontend/node_modules/
-src/frontend/.next/
-src/frontend/out/
-src/frontend/.turbo/
-src/frontend/.pnpm-store/
-
-# Dataset
-datasets/
-data/
-uploads/
-
-# Notebook
-*.ipynb
+# Alembic
+alembic/versions/__pycache__
 
 # Local DB
 *.db

@@ -1,29 +1,22 @@
-"""
-analytics_routes.py
-===================
-"""
-
 from uuid import UUID
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.api.deps import get_db, get_current_user
-from src.backend.utils.role_guard import RoleGuard
-from src.backend.models.user import User, UserRole
-from src.backend.services.session_analytics_service import SessionAnalyticsService
-from src.backend.services.session_service import SessionService
-from src.backend.services.prompt_classification_service import PromptClassificationService
-from src.backend.schemas.analytics.analytics_response import AnalyticsResponse
+from backend.api.deps import get_db, get_current_user
+from backend.utils.role_guard import RoleGuard
+from backend.models.user import User, UserRole
+from backend.services.session_analytics_service import SessionAnalyticsService
+from backend.services.session_service import SessionService
+from backend.services.prompt_classification_service import PromptClassificationService
+from backend.schemas.analytics.analytics_response import AnalyticsResponse
+from backend.observability.logging.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
-
-# =========================================================
-# STUDENT — MY ANALYTICS
-# =========================================================
 
 @router.get("/me", response_model=AnalyticsResponse)
 async def get_my_analytics(
@@ -34,10 +27,6 @@ async def get_my_analytics(
     analytics = await service.get_user_analytics(user_id=current_user.id)
     return AnalyticsResponse(**analytics)
 
-
-# =========================================================
-# STUDENT — MY PROMPT CLASSIFICATION
-# =========================================================
 
 @router.get("/me/classifications")
 async def get_my_classifications(
@@ -57,10 +46,6 @@ async def get_my_classifications(
     return {"data": result}
 
 
-# =========================================================
-# TEACHER — CLASS ANALYTICS
-# =========================================================
-
 @router.get("/class/{class_id}")
 async def get_class_analytics(
     class_id: UUID,
@@ -69,15 +54,12 @@ async def get_class_analytics(
 ):
     service = SessionAnalyticsService(db)
     try:
-        analytics = await service.get_class_analytics(class_id=class_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        analytics = await service.get_class_analytics(class_id=class_id, teacher_id=current_user.id)
+    except Exception:
+        logger.exception("analytics.get_class_analytics_failed", extra={"class_id": str(class_id)})
+        raise HTTPException(status_code=500, detail="Failed to fetch class analytics.")
     return {"class_id": str(class_id), "students": analytics}
 
-
-# =========================================================
-# TEACHER — CLASS PROMPT CLASSIFICATION
-# =========================================================
 
 @router.get("/class/{class_id}/classifications")
 async def get_class_classifications(
@@ -90,15 +72,12 @@ async def get_class_classifications(
     """
     service = PromptClassificationService(db)
     try:
-        result = await service.get_by_class(class_id=class_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        result = await service.get_by_class(class_id=class_id, teacher_id=current_user.id)
+    except Exception:
+        logger.exception("analytics.get_class_classifications_failed", extra={"class_id": str(class_id)})
+        raise HTTPException(status_code=500, detail="Failed to fetch class classifications.")
     return {"class_id": str(class_id), "students": result}
 
-
-# =========================================================
-# TEACHER — COURSE PROMPT CLASSIFICATION
-# =========================================================
 
 @router.get("/course/{course_id}/classifications")
 async def get_course_classifications(
@@ -111,15 +90,12 @@ async def get_course_classifications(
     """
     service = PromptClassificationService(db)
     try:
-        result = await service.get_by_course(course_id=course_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        result = await service.get_by_course(course_id=course_id, teacher_id=current_user.id)
+    except Exception:
+        logger.exception("analytics.get_course_classifications_failed", extra={"course_id": str(course_id)})
+        raise HTTPException(status_code=500, detail="Failed to fetch course classifications.")
     return {"course_id": str(course_id), "students": result}
 
-
-# =========================================================
-# TEACHER — TASK ANALYTICS
-# =========================================================
 
 @router.get("/task/{task_id}")
 async def get_task_analytics(
@@ -129,15 +105,12 @@ async def get_task_analytics(
 ):
     service = SessionAnalyticsService(db)
     try:
-        analytics = await service.get_task_analytics(task_id=task_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        analytics = await service.get_task_analytics(task_id=task_id, teacher_id=current_user.id)
+    except Exception:
+        logger.exception("analytics.get_task_analytics_failed", extra={"task_id": str(task_id)})
+        raise HTTPException(status_code=500, detail="Failed to fetch task analytics.")
     return {"task_id": str(task_id), "students": analytics}
 
-
-# =========================================================
-# TEACHER — TASK PROMPT CLASSIFICATION
-# =========================================================
 
 @router.get("/task/{task_id}/classifications")
 async def get_task_classifications(
@@ -150,15 +123,12 @@ async def get_task_classifications(
     """
     service = PromptClassificationService(db)
     try:
-        result = await service.get_by_task(task_id=task_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        result = await service.get_by_task(task_id=task_id, teacher_id=current_user.id)
+    except Exception:
+        logger.exception("analytics.get_task_classifications_failed", extra={"task_id": str(task_id)})
+        raise HTTPException(status_code=500, detail="Failed to fetch task classifications.")
     return {"task_id": str(task_id), "students": result}
 
-
-# =========================================================
-# TEACHER — STUDENT PROMPT CLASSIFICATION
-# =========================================================
 
 @router.get("/student/{student_id}/classifications")
 async def get_student_classifications(
@@ -171,15 +141,12 @@ async def get_student_classifications(
     """
     service = PromptClassificationService(db)
     try:
-        result = await service.get_by_student(student_id=student_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        result = await service.get_by_student(student_id=student_id, teacher_id=current_user.id)
+    except Exception:
+        logger.exception("analytics.get_student_classifications_failed", extra={"student_id": str(student_id)})
+        raise HTTPException(status_code=500, detail="Failed to fetch student classifications.")
     return {"student_id": str(student_id), "data": result}
 
-
-# =========================================================
-# TEACHER — SESSION DETAIL ANALYTICS
-# =========================================================
 
 @router.get("/sessions/{session_id}")
 async def get_session_analytics(

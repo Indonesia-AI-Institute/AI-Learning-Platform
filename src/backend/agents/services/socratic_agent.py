@@ -1,7 +1,4 @@
 """
-socratic_tutor_agent.py
-=======================
-
 SocraticTutorAgent implements true multi-turn guided learning.
 """
 
@@ -21,10 +18,6 @@ class SocraticTutorAgent(BaseAgent):
         llm_service: Any,
     ) -> None:
         super().__init__(agent_config_path, llm_service)
-
-    # ======================================================
-    # MAIN GENERATE (NON-STREAM)
-    # ======================================================
 
     async def generate(
         self,
@@ -55,10 +48,6 @@ class SocraticTutorAgent(BaseAgent):
 
         return await self._generate_guiding_question(messages, **kwargs)
 
-    # ======================================================
-    # STREAM VERSION (🔥 FIXED)
-    # ======================================================
-
     async def stream_generate(
         self,
         messages: List[Dict[str, str]],
@@ -71,10 +60,7 @@ class SocraticTutorAgent(BaseAgent):
             msg for msg in messages if msg.get("role") == "assistant"
         ]
 
-        # =============================
-        # DETERMINE STAGE (SAMA LOGIC generate())
-        # =============================
-
+        # Stage-selection logic mirrors generate() above — keep both in sync.
         if not assistant_messages:
             stage = "QUESTION"
 
@@ -85,10 +71,6 @@ class SocraticTutorAgent(BaseAgent):
             reflection_result = await self._run_reflection(messages)
             stage = reflection_result.get("NEXT_ACTION", "QUESTION")
 
-        # =============================
-        # BUILD PROMPT SESUAI STAGE
-        # =============================
-
         if stage == "FINALIZE":
             system_prompt = self.prompts.get("finalization_prompt", "")
         else:
@@ -96,20 +78,12 @@ class SocraticTutorAgent(BaseAgent):
 
         enriched = self._inject_system_prompt(messages, system_prompt)
 
-        # =============================
-        # STREAM KE LLM (TOKEN-BASED)
-        # =============================
-
         async for chunk in self.llm_service.stream_generate(
             messages=enriched,
             **self.get_model_params(),
             **kwargs,
         ):
             yield chunk
-
-    # ======================================================
-    # STAGE METHODS (NON-STREAM)
-    # ======================================================
 
     async def _generate_guiding_question(
         self,
@@ -156,10 +130,8 @@ class SocraticTutorAgent(BaseAgent):
             **kwargs,
         )
 
-    # ======================================================
-    # REFLECTION (NON-STREAM, MEMANG HARUS)
-    # ======================================================
-
+    # Reflection always runs non-streaming: the result is regex-parsed for
+    # NEXT_ACTION, so a partial/streamed response can't be used here.
     async def _run_reflection(
         self,
         messages: List[Dict[str, str]],
@@ -176,21 +148,6 @@ class SocraticTutorAgent(BaseAgent):
 
         content = self._extract_content(reflection_response)
         return self._parse_reflection(content)
-
-    # ======================================================
-    # UTILITIES
-    # ======================================================
-
-    def _inject_system_prompt(
-        self,
-        messages: List[Dict[str, str]],
-        system_prompt: str,
-    ) -> List[Dict[str, str]]:
-
-        if messages and messages[0].get("role") == "system":
-            return messages
-
-        return [{"role": "system", "content": system_prompt}] + messages
 
     def _extract_content(self, response: Dict[str, Any]) -> str:
 

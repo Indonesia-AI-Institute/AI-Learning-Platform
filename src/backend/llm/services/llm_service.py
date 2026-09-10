@@ -1,18 +1,14 @@
 """
-llm_service.py
-==============
-
-LLM Orchestration Service.
-Provider dipilih berdasarkan ENV config via provider_factory.
+LLM orchestration service. Provider dipilih berdasarkan ENV config via provider_factory.
 """
 
 from typing import Any, Dict, List, AsyncGenerator
 import time
 
-from src.backend.core.config import settings
-from src.backend.llm.providers.provider_factory import create_llm_provider
-from src.backend.guardrails.banlist_filter import BanListFilter
-from src.backend.observability.logging.logger import get_logger
+from backend.core.config import settings
+from backend.llm.providers.provider_factory import create_llm_provider
+from backend.guardrails.banlist_filter import BanListFilter
+from backend.observability.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -37,10 +33,6 @@ class LLMService:
             },
         )
 
-    # =====================================================
-    # INTERNAL
-    # =====================================================
-
     def _create_provider(self):
         """
         Create provider instance dari factory berdasarkan ENV config.
@@ -48,6 +40,9 @@ class LLMService:
         return create_llm_provider()
 
     def _check_banlist(self, text: str):
+        if not settings.ENABLE_BANLIST_FILTER:
+            return
+
         is_blocked, keyword = self.banlist_filter.check(text)
         if is_blocked:
             logger.warning(
@@ -55,10 +50,6 @@ class LLMService:
                 extra={"event": "llm.guardrail_blocked", "keyword": keyword},
             )
             raise ValueError(f"Prompt contains banned keyword: {keyword}")
-
-    # =====================================================
-    # NON STREAM RESPONSE
-    # =====================================================
 
     async def generate(
         self,
@@ -97,10 +88,6 @@ class LLMService:
                 extra={"event": "llm.generate_error", "error": str(e)},
             )
             raise
-
-    # =====================================================
-    # STREAM RESPONSE (SSE)
-    # =====================================================
 
     async def stream_generate(
         self,

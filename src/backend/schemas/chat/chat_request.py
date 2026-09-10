@@ -1,7 +1,4 @@
 """
-chat_request.py
-===============
-
 Pydantic schema for Chat Request (Split Agent Architecture).
 
 Used by:
@@ -12,10 +9,6 @@ Used by:
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-
-# =========================================================
-# CHAT MESSAGE ITEM
-# =========================================================
 
 class ChatMessage(BaseModel):
     """
@@ -30,14 +23,12 @@ class ChatMessage(BaseModel):
 
     content: str = Field(
         ...,
+        min_length=1,
+        max_length=8000,
         description="Message content text",
         example="Explain machine learning in simple terms."
     )
 
-
-# =========================================================
-# MAIN CHAT REQUEST
-# =========================================================
 
 class ChatRequest(BaseModel):
     """
@@ -47,11 +38,13 @@ class ChatRequest(BaseModel):
 
     messages: List[ChatMessage] = Field(
         ...,
+        max_length=200,
         description="Full conversation history"
     )
 
     system_prompt: Optional[str] = Field(
         None,
+        max_length=4000,
         description="Optional system prompt override"
     )
 

@@ -1,7 +1,4 @@
 """
-role_guard.py
-=============
-
 Centralized Role-Based Access Control (RBAC) Dependency.
 """
 
@@ -9,8 +6,8 @@ from typing import Iterable
 
 from fastapi import Depends, HTTPException, status
 
-from src.backend.api.deps import get_current_user
-from src.backend.models.user import User, UserRole
+from backend.api.deps import get_current_user
+from backend.models.user import User, UserRole
 
 
 class RoleGuard:

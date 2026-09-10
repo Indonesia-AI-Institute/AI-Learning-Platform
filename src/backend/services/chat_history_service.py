@@ -4,9 +4,9 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from src.backend.services.context_window_service import ContextWindowService
-from src.backend.models.chat_history import ChatHistory, MessageRole, MessageStatus
-from src.backend.repositories.chat_history_repository import ChatHistoryRepository
+from backend.services.context_window_service import ContextWindowService
+from backend.models.chat_history import ChatHistory, MessageRole, MessageStatus
+from backend.repositories.chat_history_repository import ChatHistoryRepository
 
 
 class ChatHistoryService:
@@ -25,19 +25,11 @@ class ChatHistoryService:
         self.history_repo = ChatHistoryRepository(db)
         self.context_window_service = ContextWindowService()
 
-    # =================================
-    # GET NEXT MESSAGE INDEX
-    # =================================
-
     async def _get_next_index(self, session_id: UUID) -> int:
         # NOTE: with_for_update() is NOT allowed with aggregate functions in PostgreSQL.
         # Using get_last_message_index() from repository which uses plain max() query.
         last_index = await self.history_repo.get_last_message_index(session_id)
         return last_index + 1
-
-    # =================================
-    # SET MODEL PROVIDER
-    # =================================
 
     async def set_model_provider(
         self,
@@ -50,10 +42,6 @@ class ChatHistoryService:
             model_name=model_name,
             provider_name=provider_name,
         )
-
-    # =================================
-    # ADD USER MESSAGE
-    # =================================
 
     async def add_user_message(
         self,
@@ -74,10 +62,6 @@ class ChatHistoryService:
         )
 
         return await self.history_repo.create_message(new_history)
-
-    # =================================
-    # CREATE ASSISTANT MESSAGE (STREAM START)
-    # =================================
 
     async def create_assistant_message(
         self,
@@ -101,10 +85,6 @@ class ChatHistoryService:
 
         return await self.history_repo.create_message(new_history)
 
-    # =================================
-    # FINALIZE ASSISTANT MESSAGE
-    # =================================
-
     async def finalize_assistant_message(
         self,
         message_id: UUID,
@@ -125,10 +105,6 @@ class ChatHistoryService:
             message_metadata=metadata,
         )
 
-    # =================================
-    # GET SESSION HISTORY
-    # =================================
-
     async def get_session_history(
         self,
         session_id: UUID,
@@ -145,10 +121,6 @@ class ChatHistoryService:
 
         result = await self.db.execute(stmt)
         return result.scalars().all()
-
-    # =================================
-    # BUILD LLM CONTEXT
-    # =================================
 
     async def build_llm_context(
         self,
@@ -176,13 +148,8 @@ class ChatHistoryService:
                 }
             )
 
-        # Apply context window trimming
         messages = self.context_window_service.trim_messages(messages)
         return messages
-
-    # =================================
-    # GET SESSION MESSAGES WITH PAGINATION
-    # =================================
 
     async def get_session_messages(
         self,
@@ -203,16 +170,11 @@ class ChatHistoryService:
         result = await self.db.execute(stmt)
         return result.scalars().all()
 
-    # =================================
-    # UPDATE STREAMING CONTENT
-    # =================================
-
     async def update_streaming_content(
         self,
         message_id: UUID,
         partial_content: str,
     ):
-        # Fetch current content then append
         stmt = select(ChatHistory).where(ChatHistory.id == message_id)
         result = await self.db.execute(stmt)
         message = result.scalar_one_or_none()

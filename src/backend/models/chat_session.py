@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from src.backend.models.base import BaseModel
+from backend.models.base import BaseModel
 
 
 class ChatSession(BaseModel):
@@ -37,10 +37,6 @@ class ChatSession(BaseModel):
         DateTime(timezone=True),
         nullable=True
     )
-
-    # =========================
-    # RELATIONSHIPS
-    # =========================
 
     student = relationship(
         "User",

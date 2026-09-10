@@ -4,17 +4,17 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.models.user import User, UserRole
-from src.backend.models.chat_session import ChatSession
-from src.backend.models.enrollment import Enrollment
+from backend.models.user import User, UserRole
+from backend.models.chat_session import ChatSession
+from backend.models.enrollment import Enrollment
 
-from src.backend.repositories.session_repository import SessionRepository
-from src.backend.repositories.task_repository import TaskRepository
-from src.backend.repositories.course_repository import CourseRepository
-from src.backend.repositories.class_repository import ClassRepository
-from src.backend.repositories.base_repository import BaseRepository
+from backend.repositories.session_repository import SessionRepository
+from backend.repositories.task_repository import TaskRepository
+from backend.repositories.course_repository import CourseRepository
+from backend.repositories.class_repository import ClassRepository
+from backend.repositories.base_repository import BaseRepository
 
-from src.backend.services.session_analytics_service import SessionAnalyticsService
+from backend.services.session_analytics_service import SessionAnalyticsService
 
 
 class SessionService:
@@ -26,10 +26,6 @@ class SessionService:
         self.class_repo = ClassRepository(db)
         self.enrollment_repo = BaseRepository(Enrollment, db)
         self.analytics_service = SessionAnalyticsService(db)
-
-    # =========================
-    # CREATE SESSION (Student Only)
-    # =========================
 
     async def create_session(
         self,
@@ -80,10 +76,6 @@ class SessionService:
 
         return await self.session_repo.create(new_session)
 
-    # =========================
-    # GET MY SESSIONS (Student)
-    # =========================
-
     async def get_my_sessions(
         self,
         current_user: User,
@@ -99,10 +91,6 @@ class SessionService:
             skip=skip,
             limit=limit,
         )
-
-    # =========================
-    # GET SESSIONS BY TASK (Student)
-    # =========================
 
     async def get_sessions_by_task(
         self,
@@ -126,10 +114,6 @@ class SessionService:
             limit=limit,
         )
 
-    # =========================
-    # GET SESSION DETAIL WITH ACCESS CHECK
-    # =========================
-
     async def get_session_detail(
         self,
         current_user: User,
@@ -138,19 +122,18 @@ class SessionService:
         db_session = await self.session_repo.get(session_id)
         if not db_session:
             raise ValueError("Session not found.")
- 
+
         if current_user.role == UserRole.STUDENT:
             if db_session.student_id != current_user.id:
                 raise PermissionError("Access denied.")
- 
-        elif current_user.role == UserRole.TEACHER:
-            pass  # teacher access validated at route level
- 
-        return db_session
 
-    # =========================
-    # END SESSION (Student Only)
-    # =========================
+        elif current_user.role == UserRole.TEACHER:
+            db_task = await self.task_repo.get(db_session.task_id)
+            db_course = await self.course_repo.get(db_task.course_id) if db_task else None
+            if not db_course or db_course.teacher_id != current_user.id:
+                raise PermissionError("Access denied.")
+
+        return db_session
 
     async def end_session(
         self,
@@ -183,10 +166,6 @@ class SessionService:
             },
         )
 
-    # =========================
-    # RESUME SESSION (Student Only)
-    # =========================
-
     async def resume_session(
         self,
         current_user: User,
@@ -218,10 +197,6 @@ class SessionService:
             },
         )
 
-    # =========================
-    # GET SESSIONS BY TEACHER
-    # =========================
-
     async def get_teacher_sessions(
         self,
         current_user: User,
@@ -237,10 +212,7 @@ class SessionService:
             skip=skip,
             limit=limit,
         )
-    # =========================
-    # DELETE SESSION (Student Only)
-    # =========================
- 
+
     async def delete_session(
         self,
         current_user: User,

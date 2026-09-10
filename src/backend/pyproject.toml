@@ -6,37 +6,37 @@ readme = "README.md"
 requires-python = ">=3.10"
 
 dependencies = [
-    # =========================================================
-    # FASTAPI CORE
-    # =========================================================
+    # FastAPI core
     "fastapi==0.115.0",
     "uvicorn[standard]==0.30.6",
-    # =========================================================
-    # CONFIG & SETTINGS
-    # =========================================================
+    "python-multipart==0.0.22",
+    # Config & settings
     "pydantic==2.12.5",
     "pydantic-settings==2.12.0",
+    "email-validator==2.3.0",
     "python-dotenv==1.2.1",
     "pyyaml==6.0.3",
-    # =========================================================
-    # LLM / OPENAI
-    # =========================================================
+    # LLM providers
     "openai==1.52.2",
     "httpx==0.27.2",
     "anthropic==0.40.0",
-    # =========================================================
-    # SSE STREAMING
-    # =========================================================
+    # Database
+    "sqlalchemy==2.0.46",
+    "asyncpg==0.31.0",
+    "alembic==1.18.4",
+    # SSE streaming
     "sse-starlette==2.1.3",
-    # =========================================================
-    # PERFORMANCE
-    # =========================================================
+    # Performance
     "orjson==3.11.7",
-    # =========================================================
-    # SECURITY
-    # =========================================================
-    "python-jose==3.3.0",
-    "passlib==1.7.4",
+    # Security
+    "python-jose==3.4.0",
+    "passlib[bcrypt]==1.7.4",
+    # Pinned: passlib 1.7.4's own bcrypt self-test crashes on bcrypt 5.x
+    # (bcrypt now hard-rejects >72-byte inputs instead of the old silent
+    # truncation passlib's probe expects) — passlib is unmaintained, so this
+    # is a hard ceiling until the auth layer moves off it.
+    "bcrypt==4.0.1",
+    "cryptography==46.0.5",
     "python-semantic-release>=9.0.0",
 ]
 
@@ -47,28 +47,31 @@ dev = [
     "python-semantic-release>=9.0.0"
 ]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
 
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
+# The app runs via PYTHONPATH + "backend.*" imports, not as an installed
+# package, so uv should only install dependencies, never build/install this.
+[tool.uv]
+package = false
 
-# =========================================================
-# PYTHON SEMANTIC RELEASE
-# =========================================================
 
+# Python Semantic Release — config resolved relative to repo root (see
+# `semantic-release --config` in .github/workflows/container-build.yml)
 [tool.semantic_release]
 tag_format = "v{version}"
-
 major_on_zero = false
-
 branch = "main"
-
 commit_parser = "angular"
 
-# Update version pada [project]
 version_toml = [
-    "pyproject.toml:project.version"
+    "src/backend/pyproject.toml:project.version"
 ]
 
 [tool.semantic_release.commit_parser_options]

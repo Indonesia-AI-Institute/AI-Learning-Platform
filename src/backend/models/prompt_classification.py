@@ -1,7 +1,4 @@
 """
-models/prompt_classification.py
-================================
-
 Stores prompt type classification for each user message.
 Populated in parallel with chat response generation.
 """
@@ -12,7 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from src.backend.db.base import Base
+from backend.db.base import Base
 
 
 class PromptClassification(Base):
@@ -51,10 +48,6 @@ class PromptClassification(Base):
         index=True,
     )
 
-    # =========================
-    # PROMPT TYPE FLAGS
-    # =========================
-
     is_direct_answer = Column(Boolean, default=False, nullable=False)
     is_explanation = Column(Boolean, default=False, nullable=False)
     is_step_by_step = Column(Boolean, default=False, nullable=False)
@@ -66,10 +59,6 @@ class PromptClassification(Base):
     is_brainstorm = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # =========================
-    # RELATIONSHIPS
-    # =========================
 
     session = relationship("ChatSession")
     student = relationship("User")

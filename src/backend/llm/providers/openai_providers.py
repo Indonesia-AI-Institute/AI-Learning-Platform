@@ -10,9 +10,9 @@ import time
 
 from openai import AsyncOpenAI
 
-from src.backend.llm.base.llm_providers import BaseLLMProvider, llm_provider_registry
-from src.backend.core.config import settings
-from src.backend.observability.logging.logger import get_logger
+from backend.llm.base.llm_providers import BaseLLMProvider, llm_provider_registry
+from backend.core.config import settings
+from backend.observability.logging.logger import get_logger
 
 
 logger = get_logger(__name__)
@@ -50,10 +50,6 @@ class OpenAIProvider(BaseLLMProvider):
                 "has_api_key": bool(settings.OPENAI_API_KEY),
             },
         )
-
-    # ======================================================
-    # NON STREAM
-    # ======================================================
 
     async def generate(
         self,
@@ -126,10 +122,6 @@ class OpenAIProvider(BaseLLMProvider):
             )
             raise RuntimeError(f"OpenAI generate error: {str(e)}")
 
-    # ======================================================
-    # STREAM
-    # ======================================================
-
     async def stream_generate(
         self,
         messages: List[Dict[str, str]],
@@ -161,7 +153,6 @@ class OpenAIProvider(BaseLLMProvider):
                 max_tokens=kwargs.get("max_tokens", self.max_tokens),
                 stream=True,
             )
-            # Start event
             yield {
                 "type": "start",
                 "model": self.model_name,
@@ -223,9 +214,5 @@ class OpenAIProvider(BaseLLMProvider):
             )
             raise RuntimeError(f"OpenAI streaming error: {str(e)}")
 
-
-# ======================================================
-# REGISTER PROVIDER
-# ======================================================
 
 llm_provider_registry.register("openai", OpenAIProvider)

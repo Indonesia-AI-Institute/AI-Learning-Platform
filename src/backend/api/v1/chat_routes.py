@@ -1,7 +1,3 @@
-"""
-api/v1/chat_routes.py
-"""
-
 from uuid import UUID
 from typing import List, Optional
 
@@ -11,35 +7,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.backend.utils.role_guard import RoleGuard
-from src.backend.api.deps import get_db, get_chat_service
-from src.backend.services.prompt_classification_service import PromptClassificationService
-from src.backend.llm.services.llm_service import LLMService
-from src.backend.services.session_service import SessionService
-from src.backend.services.chat_history_service import ChatHistoryService
-from src.backend.services.chat_service import ChatService
-from src.backend.services.conversation_service import ConversationService
+from backend.utils.role_guard import RoleGuard
+from backend.api.deps import get_db, get_chat_service, get_current_user
+from backend.services.prompt_classification_service import PromptClassificationService
+from backend.llm.services.llm_service import LLMService
+from backend.services.session_service import SessionService
+from backend.services.chat_history_service import ChatHistoryService
+from backend.services.chat_service import ChatService
+from backend.services.conversation_service import ConversationService
 
-from src.backend.models.user import User, UserRole
-from src.backend.models.chat_session import ChatSession
-from src.backend.models.task import Task
-from src.backend.models.course import Course
+from backend.models.user import User, UserRole
+from backend.models.chat_session import ChatSession
+from backend.models.task import Task
+from backend.models.course import Course
 
-from src.backend.schemas.chat.chat_request import ChatRequest
-from src.backend.schemas.chat.chat_response import ChatResponse
-from src.backend.schemas.chat.chat_session_response import ChatSessionResponse
-from src.backend.schemas.chat.chat_session_create_request import ChatSessionCreateRequest
-from src.backend.schemas.chat.chat_history_response import ChatHistoryResponse, ChatMessageItem
+from backend.schemas.chat.chat_request import ChatRequest
+from backend.schemas.chat.chat_response import ChatResponse
+from backend.schemas.chat.chat_session_response import ChatSessionResponse
+from backend.schemas.chat.chat_session_create_request import ChatSessionCreateRequest
+from backend.schemas.chat.chat_history_response import ChatHistoryResponse, ChatMessageItem
 
-from src.backend.utils.streaming_utils import sse_stream_wrapper
+from backend.utils.streaming_utils import sse_stream_wrapper
 
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
-
-# =========================================================
-# DEPENDENCY BUILDER
-# =========================================================
 
 def get_conversation_service(
     db: AsyncSession = Depends(get_db),
@@ -54,13 +46,10 @@ def get_conversation_service(
     )
 
 
-# =========================================================
-# DIRECT AGENT (STATELESS)
-# =========================================================
-
 @router.post("/direct/stream")
 async def stream_direct_chat(
     request: ChatRequest,
+    current_user: User = Depends(get_current_user),
     chat_service: ChatService = Depends(get_chat_service),
 ):
     async def event_stream():
@@ -78,6 +67,7 @@ async def stream_direct_chat(
 @router.post("/direct/generate", response_model=ChatResponse)
 async def generate_direct_chat(
     request: ChatRequest,
+    current_user: User = Depends(get_current_user),
     chat_service: ChatService = Depends(get_chat_service),
 ):
     messages = []
@@ -87,10 +77,6 @@ async def generate_direct_chat(
     response = await chat_service.generate(agent_type="direct_tutor", messages=messages)
     return ChatResponse(response_text=response["content"])
 
-
-# =========================================================
-# CREATE SESSION (Student)
-# =========================================================
 
 @router.post("/sessions/task/{task_id}", response_model=ChatSessionResponse)
 async def create_session(
@@ -113,11 +99,7 @@ async def create_session(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-# =========================================================
-# GET MY SESSIONS (Student)
 # PENTING: route static "/my" harus SEBELUM route dynamic "/{session_id}"
-# =========================================================
-
 @router.get("/sessions/my", response_model=List[ChatSessionResponse])
 async def get_my_sessions(
     skip: int = 0,
@@ -132,11 +114,7 @@ async def get_my_sessions(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-# =========================================================
-# GET SESSIONS BY TASK (Student)
 # PENTING: route "/task/{task_id}" harus SEBELUM "/{session_id}"
-# =========================================================
-
 @router.get("/sessions/task/{task_id}", response_model=List[ChatSessionResponse])
 async def get_sessions_by_task(
     task_id: UUID,
@@ -159,11 +137,7 @@ async def get_sessions_by_task(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-# =========================================================
-# GET SINGLE SESSION BY ID (Student)
 # Dipakai chat room page — lebih efisien dari getMySessions().find()
-# =========================================================
-
 @router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
 async def get_session_by_id(
     session_id: UUID,
@@ -181,10 +155,6 @@ async def get_session_by_id(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-
-# =========================================================
-# STREAM SESSION CHAT (Student)
-# =========================================================
 
 @router.post("/sessions/{session_id}/stream")
 async def stream_session_chat(
@@ -211,10 +181,6 @@ async def stream_session_chat(
     return StreamingResponse(sse_stream_wrapper(event_stream()), media_type="text/event-stream")
 
 
-# =========================================================
-# END SESSION (Student)
-# =========================================================
-
 @router.post("/sessions/{session_id}/end", response_model=ChatSessionResponse)
 async def end_chat_session(
     session_id: UUID,
@@ -230,10 +196,6 @@ async def end_chat_session(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-# =========================================================
-# RESUME SESSION (Student)
-# =========================================================
-
 @router.post("/sessions/{session_id}/resume", response_model=ChatSessionResponse)
 async def resume_chat_session(
     session_id: UUID,
@@ -248,10 +210,6 @@ async def resume_chat_session(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-
-# =========================================================
-# AUTO-END SESSION (Student — called on page unmount)
-# =========================================================
 
 @router.post("/sessions/{session_id}/auto-end", response_model=ChatSessionResponse)
 async def auto_end_chat_session(
@@ -276,10 +234,6 @@ async def auto_end_chat_session(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-# =========================================================
-# DELETE SESSION (Student)
-# =========================================================
-
 @router.delete("/sessions/{session_id}", status_code=204)
 async def delete_chat_session(
     session_id: UUID,
@@ -294,10 +248,6 @@ async def delete_chat_session(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-
-# =========================================================
-# GET CHAT HISTORY (Student)
-# =========================================================
 
 @router.get("/sessions/{session_id}/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
@@ -329,10 +279,6 @@ async def get_chat_history(
         ],
     )
 
-
-# =========================================================
-# TEACHER — GET STUDENT SESSIONS (with task title)
-# =========================================================
 
 @router.get("/teacher/student/{student_id}/sessions")
 async def get_student_sessions_for_teacher(
@@ -377,10 +323,6 @@ async def get_student_sessions_for_teacher(
         for s in sessions
     ]
 
-
-# =========================================================
-# TEACHER — GET SESSION HISTORY
-# =========================================================
 
 @router.get("/teacher/sessions/{session_id}/history", response_model=ChatHistoryResponse)
 async def get_session_history_for_teacher(

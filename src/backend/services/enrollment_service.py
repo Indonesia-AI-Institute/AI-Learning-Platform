@@ -3,12 +3,11 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.models.enrollment import Enrollment
-from src.backend.models.user import User, UserRole
-from src.backend.models.class_model import Class
+from backend.models.enrollment import Enrollment
+from backend.models.user import User, UserRole
 
-from src.backend.repositories.enrollment_repository import EnrollmentRepository
-from src.backend.repositories.class_repository import ClassRepository
+from backend.repositories.enrollment_repository import EnrollmentRepository
+from backend.repositories.class_repository import ClassRepository
 
 
 class EnrollmentService:
@@ -16,10 +15,6 @@ class EnrollmentService:
         self.db = db
         self.enroll_repo = EnrollmentRepository(db)
         self.class_repo = ClassRepository(db)
-
-    # ===============================
-    # STUDENT ENROLL
-    # ===============================
 
     async def enroll_student(
         self,
@@ -48,10 +43,6 @@ class EnrollmentService:
 
         return await self.enroll_repo.create(enrollment)
 
-    # ===============================
-    # STUDENT UNENROLL
-    # ===============================
-
     async def unenroll_student(
         self,
         student: User,
@@ -70,10 +61,6 @@ class EnrollmentService:
 
         await self.enroll_repo.delete(enrollment_id)
 
-    # ===============================
-    # STUDENT VIEW OWN ENROLLMENTS
-    # ===============================
-
     async def get_student_enrollments(
         self,
         student: User,
@@ -89,10 +76,6 @@ class EnrollmentService:
             skip=skip,
             limit=limit
         )
-
-    # ===============================
-    # TEACHER VIEW CLASS ENROLLMENTS
-    # ===============================
 
     async def get_class_enrollments(
         self,

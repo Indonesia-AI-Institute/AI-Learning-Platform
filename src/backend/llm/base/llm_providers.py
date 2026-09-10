@@ -1,32 +1,12 @@
 """
-llm_providers.py
-================
-
-Base abstraction untuk semua LLM provider.
-
-Tujuan:
-- Standardisasi interface antar provider (OpenAI, OpenRouter, dll)
-- Memudahkan model switching di masa depan
-- Memisahkan logic LLM dari business logic service
-
-Saat ini digunakan untuk:
-✔ OpenAI Provider
-✔ Streaming (SSE)
-✔ Non-stream response
-
-Future Ready:
-- Multi provider routing
-- Model cost tracking
-- Tool calling orchestration
+Base abstraction for all LLM providers: standardizes the interface across
+providers (OpenAI, OpenRouter, Anthropic, etc.) and separates LLM logic
+from business logic in the service layer.
 """
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, AsyncGenerator
 
-
-# =========================================================
-# BASE PROVIDER ABSTRACT CLASS
-# =========================================================
 
 class BaseLLMProvider(ABC):
     """
@@ -47,10 +27,6 @@ class BaseLLMProvider(ABC):
         self.max_tokens = max_tokens
         self.timeout = timeout
 
-    # =====================================================
-    # REQUIRED METHOD
-    # =====================================================
-
     @abstractmethod
     async def generate(
         self,
@@ -69,10 +45,6 @@ class BaseLLMProvider(ABC):
         """
         pass
 
-    # =====================================================
-    # OPTIONAL STREAM METHOD
-    # =====================================================
-
     async def stream_generate(
         self,
         messages: List[Dict[str, str]],
@@ -86,10 +58,6 @@ class BaseLLMProvider(ABC):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support streaming."
         )
-
-    # =====================================================
-    # HELPER
-    # =====================================================
 
     def _build_response(
         self,
@@ -109,10 +77,6 @@ class BaseLLMProvider(ABC):
             "raw": raw,
         }
 
-
-# =========================================================
-# PROVIDER REGISTRY
-# =========================================================
 
 class LLMProviderRegistry:
     """
@@ -149,9 +113,5 @@ class LLMProviderRegistry:
         """
         return list(self._providers.keys())
 
-
-# =========================================================
-# GLOBAL REGISTRY INSTANCE
-# =========================================================
 
 llm_provider_registry = LLMProviderRegistry()

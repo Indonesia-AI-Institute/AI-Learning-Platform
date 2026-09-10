@@ -5,9 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.backend.models.course import Course
-from src.backend.models.user import User
-from src.backend.repositories.base_repository import BaseRepository
+from backend.models.course import Course
+from backend.repositories.base_repository import BaseRepository
 
 
 class CourseRepository(BaseRepository[Course]):
@@ -75,12 +74,3 @@ class CourseRepository(BaseRepository[Course]):
         )
         result = await self.db.execute(stmt)
         return result.scalars().all()
-
-    async def get_detail(self, course_id: UUID) -> Optional[Course]:
-        stmt = (
-            select(Course)
-            .options(selectinload(Course.teacher))
-            .where(Course.id == course_id)
-        )
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()

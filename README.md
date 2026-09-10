@@ -18,6 +18,7 @@ A full-stack AI-powered learning platform that enables teachers to manage course
   - [Environment Variables](#environment-variables)
   - [LLM Provider Configuration](#llm-provider-configuration)
   - [Database Migrations](#database-migrations)
+  - [Testing](#testing)
   - [API Overview](#api-overview)
   - [Troubleshooting](#troubleshooting)
   - [License](#license)
@@ -112,10 +113,11 @@ cd AI-Learning-Platform
 **2. Configure environment**
 
 ```bash
-cp .env.example .env
+cp .env.be.example .env.be
+cp .env.fe.example .env.fe
 ```
 
-Fill in the required values in `.env`. See the [Environment Variables](#environment-variables) section for the full reference.
+Fill in the required values in `.env.be` and `.env.fe`. See the [Environment Variables](#environment-variables) section for the full reference.
 
 **3. Pull images from GHCR and start**
 
@@ -164,9 +166,9 @@ Use this approach if you want to run the platform directly from the published im
 mkdir ai-learning-platform && cd ai-learning-platform
 ```
 
-**2. Create the environment file**
+**2. Create the environment files**
 
-Create a file named `.env` in the folder and fill in the required values:
+Create a file named `.env.be` in the folder and fill in the required values:
 
 ```env
 POSTGRES_USER=postgres
@@ -182,7 +184,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 DEFAULT_LLM_PROVIDER=openrouter
 DEFAULT_LLM_MODEL=meta-llama/llama-3.1-8b-instruct:free
 OPENROUTER_API_KEY=sk-or-xxxx
+```
 
+Create a file named `.env.fe` in the folder:
+
+```env
 # URL accessible from the browser
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 ```
@@ -214,14 +220,14 @@ docker run -d `
   --name ailearning-api `
   --network ai-learning-net `
   --restart unless-stopped `
-  --env-file .env `
+  --env-file .env.be `
   -p 8000:8000 `
   ghcr.io/indonesia-ai-institute/ai-learning-platform-api:latest
 ```
 Run database migration
 
 ```bash
-docker exec ailearning-api alembic upgrade head
+docker exec ailearning-api alembic -c backend/alembic.ini upgrade head
 ```
 Run image frontend
 
@@ -230,6 +236,7 @@ docker run -d `
   --name ailearning-frontend `
   --network ai-learning-net `
   --restart unless-stopped `
+  --env-file .env.fe `
   -p 3000:3000 `
   ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:latest
 ```
@@ -247,32 +254,19 @@ The API will be available at `http://localhost:8000` and the frontend at `http:/
 
 ```bash
 # UV (Recommended)
+cd src/backend
+uv sync
 
-uv venv --python 3.11
-.venv/Scripts/Activate
-
-# Windows
-
-python -m venv .venv
-.venv\Scripts\activate
-
-# Mac / Linux
-
-python -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env — set DATABASE_URL to use localhost, not "db"
+# Configure environment (from the repo root)
+cp .env.be.example .env.be
+# Edit .env.be — set DATABASE_URL to use localhost, not "db"
 
 # Run database migrations (PostgreSQL must be running)
-alembic upgrade head
+uv run alembic upgrade head
 
-# Start the backend
-uvicorn src.backend.main:app --reload --host 0.0.0.0 --port 8000
+# Start the backend — run from src/, with PYTHONPATH=src, so "backend.*" imports resolve
+cd ..
+PYTHONPATH="$(pwd)" uv run --project backend uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Frontend**
@@ -287,7 +281,7 @@ pnpm dev
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in the values.
+Copy `.env.be.example` to `.env.be` (backend) and `.env.fe.example` to `.env.fe` (frontend), then fill in the values.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -359,20 +353,42 @@ Migrations run automatically when the API container starts. For manual control:
 
 ```bash
 # Apply all pending migrations
-alembic upgrade head
+uv run alembic upgrade head
 
 # Create a new migration after changing a model
-alembic revision --autogenerate -m "describe your change"
+uv run alembic revision --autogenerate -m "describe your change"
 
 # Roll back one migration
-alembic downgrade -1
+uv run alembic downgrade -1
 ```
 
 When using Docker:
 
 ```bash
-docker compose exec api alembic revision --autogenerate -m "describe your change"
-docker compose exec api alembic upgrade head
+docker compose exec api alembic -c backend/alembic.ini revision --autogenerate -m "describe your change"
+docker compose exec api alembic -c backend/alembic.ini upgrade head
+```
+
+---
+
+## Testing
+
+Integration tests need a real Postgres — the models use `sqlalchemy.dialects.postgresql.UUID`, which SQLite can't run. Point them at any disposable Postgres instance (a local one, or `docker run -d -p 5433:5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test postgres:15-alpine`); each test run drops and recreates the schema, so nothing else should be using that database.
+
+```bash
+cd src/backend
+uv sync --extra dev
+cd ../..
+
+# Run from the repo root, with PYTHONPATH=src, for the same reason
+# uvicorn needs it locally — see "Running Locally without Docker" above.
+# Defaults to postgresql+asyncpg://test:test@localhost:5433/test —
+# override with your own DATABASE_URL if that doesn't match your setup
+PYTHONPATH=src uv run --project src/backend pytest src/backend/tests
+
+# Just unit tests (no DB needed) or just integration tests
+PYTHONPATH=src uv run --project src/backend pytest src/backend/tests/unit
+PYTHONPATH=src uv run --project src/backend pytest src/backend/tests/integration
 ```
 
 ---
@@ -432,7 +448,7 @@ The most common cause is an incorrect `DATABASE_URL`. When running inside Docker
 
 **Migrations fail on startup**
 
-If you see `alembic: command not found`, the image may not have been rebuilt after a `requirements.txt` change. Run:
+If you see `alembic: command not found`, the image may not have been rebuilt after a dependency change in `src/backend/pyproject.toml`. Run:
 
 ```bash
 docker compose build api && docker compose up -d api
@@ -440,7 +456,7 @@ docker compose build api && docker compose up -d api
 
 **Frontend cannot reach the API**
 
-`NEXT_PUBLIC_API_URL` is baked into the Next.js build at build time. Changing it in `.env` alone is not enough — you must rebuild the frontend image:
+`NEXT_PUBLIC_API_URL` is baked into the Next.js build at build time. Changing it in `.env.fe` alone is not enough — you must rebuild the frontend image:
 
 ```bash
 docker compose build frontend && docker compose up -d frontend

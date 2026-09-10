@@ -1,7 +1,8 @@
-# Env
+# Env — irrelevant either way, since .env.fe.example lives at the repo
+# root and was never part of this build context, but kept accurate:
 .env
 .env.*
-!.env.example
+!.env.fe.example
 
 # Docs
 *.md

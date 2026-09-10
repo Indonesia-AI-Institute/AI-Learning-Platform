@@ -46,6 +46,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+RUN apk add --no-cache curl
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
@@ -61,9 +63,13 @@ RUN chmod +x ./entrypoint.sh
 
 USER nextjs
 
-EXPOSE 3000
+# No EXPOSE, no build-time PORT default — set at runtime by entrypoint.sh.
+# Baking a value in here would defeat the point: this image is meant to
+# run unmodified across environments that each set their own PORT.
+# (HOSTNAME is force-set to 0.0.0.0 in entrypoint.sh, not left dynamic —
+# see the comment there for why.)
 
-ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f "http://localhost:${PORT:-3000}/" || exit 1
 
 ENTRYPOINT ["./entrypoint.sh"]

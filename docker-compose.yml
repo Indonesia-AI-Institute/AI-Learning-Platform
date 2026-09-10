@@ -52,17 +52,17 @@ services:
     build:
       context: ./src/frontend
       dockerfile: Dockerfile
-      args:
-        # In production, replace with the public domain/IP
-        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
     image: ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:latest
     container_name: ailearning-frontend
     restart: unless-stopped
     ports:
+      # Host:container — container side must match PORT in .env.fe if changed
       - "3000:3000"
     networks:
       - ai-learning-net
     environment:
+      # Read at container start by entrypoint.sh, not baked into the image —
+      # in production, override via .env.fe instead of editing this file.
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
 
 networks:

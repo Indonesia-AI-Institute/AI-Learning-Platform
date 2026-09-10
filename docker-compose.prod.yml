@@ -1,0 +1,33 @@
+name: ai-learning-platform
+
+services:
+
+  # BACKEND API
+  api:
+    image: ghcr.io/indonesia-ai-institute/ai-learning-platform-api:${IMAGE_TAG:-latest}
+    container_name: ailearning-api
+    restart: unless-stopped
+    env_file:
+      - .env.be
+    ports:
+      # Host:container — container side must match PORT in .env.be if changed
+      - "8000:8000"
+    networks:
+      - ai-learning-net
+
+  # FRONTEND
+  frontend:
+    image: ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:${IMAGE_TAG:-latest}
+    container_name: ailearning-frontend
+    restart: unless-stopped
+    env_file:
+      - .env.fe
+    ports:
+      - "3000:3000"
+    networks:
+      - ai-learning-net
+
+networks:
+  ai-learning-net:
+    name: ai-learning-net
+    driver: bridge

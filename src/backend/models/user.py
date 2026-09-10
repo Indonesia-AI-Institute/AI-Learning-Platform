@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, Enum
 from sqlalchemy.orm import relationship
 import enum
 
-from src.backend.models.base import BaseModel, SoftDeleteMixin
+from backend.models.base import BaseModel, SoftDeleteMixin
 
 
 class UserRole(str, enum.Enum):
@@ -28,10 +28,6 @@ class User(BaseModel, SoftDeleteMixin):
         Enum(UserRole, name="user_role_enum"),
         nullable=False
     )
-
-    # ========================
-    # RELATIONSHIPS
-    # ========================
 
     # Teacher → courses
     course = relationship(

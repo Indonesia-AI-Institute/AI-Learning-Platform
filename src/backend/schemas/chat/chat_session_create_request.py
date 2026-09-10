@@ -1,7 +1,4 @@
 """
-chat_session_create_request.py
-==============================
-
 Pydantic schema for creating a new Chat Session.
 
 Used by:

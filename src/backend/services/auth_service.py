@@ -1,19 +1,16 @@
 """
-auth_service.py
-===============
-
 Business logic for authentication.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.models.user import User
-from src.backend.repositories.user_repository import UserRepository
-from src.backend.schemas.auth.register_request import RegisterRequest
-from src.backend.schemas.auth.login_request import LoginRequest
-from src.backend.repositories.token_blacklist_repository import TokenBlacklistRepository
-from src.backend.schemas.auth.token_response import TokenResponse
-from src.backend.auth.security import (
+from backend.models.user import User
+from backend.repositories.user_repository import UserRepository
+from backend.schemas.auth.register_request import RegisterRequest
+from backend.schemas.auth.login_request import LoginRequest
+from backend.repositories.token_blacklist_repository import TokenBlacklistRepository
+from backend.schemas.auth.token_response import TokenResponse
+from backend.auth.security import (
     hash_password,
     verify_password,
     create_access_token,
@@ -26,11 +23,6 @@ class AuthService:
         self.db = db
         self.user_repo = UserRepository(db)
         self.blacklist_repo = TokenBlacklistRepository(db)
-    
-
-    # =====================================================
-    # REGISTER
-    # =====================================================
 
     async def register_user(self, data: RegisterRequest) -> TokenResponse:
 
@@ -56,10 +48,6 @@ class AuthService:
 
         return TokenResponse(access_token=access_token)
 
-    # =====================================================
-    # LOGIN
-    # =====================================================
-
     async def login_user(self, data: LoginRequest) -> TokenResponse:
 
         user = await self.user_repo.get_by_email(data.email)
@@ -67,11 +55,9 @@ class AuthService:
         if not user:
             raise ValueError("Invalid email or password")
 
-        # ✅ Correct soft delete check
         if user.is_deleted:
             raise ValueError("User account is inactive")
 
-        # Verify password
         if not verify_password(data.password, user.hashed_password):
             raise ValueError("Invalid email or password")
 
@@ -83,9 +69,6 @@ class AuthService:
         return TokenResponse(
             access_token=access_token
         )
-    # =====================================================
-    # LOGOUT (BLACKLIST TOKEN)
-    # =====================================================
 
     async def logout(self, token: str):
         """
@@ -94,5 +77,3 @@ class AuthService:
         """
 
         await self.blacklist_repo.add_token(token)
-
-    

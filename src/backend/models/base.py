@@ -5,7 +5,7 @@ from sqlalchemy import Column, DateTime, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
-from src.backend.db.base import Base
+from backend.db.base import Base
 
 
 class UUIDMixin:

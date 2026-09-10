@@ -1,7 +1,4 @@
 """
-chat_stream_chunk.py
-====================
-
 Schema untuk streaming chunk data via SSE.
 
 Digunakan untuk:
@@ -23,20 +20,12 @@ from typing import Optional, Literal
 from pydantic import BaseModel, Field, model_validator
 
 
-# =========================================================
-# STREAM EVENT TYPES
-# =========================================================
-
 StreamEventType = Literal[
     "token",
     "done",
     "error"
 ]
 
-
-# =========================================================
-# STREAM CHUNK SCHEMA
-# =========================================================
 
 class ChatStreamChunk(BaseModel):
     """
@@ -57,10 +46,6 @@ class ChatStreamChunk(BaseModel):
         None,
         description="Error message jika event = error"
     )
-
-    # =====================================================
-    # VALIDATION RULES (IMPORTANT)
-    # =====================================================
 
     @model_validator(mode="after")
     def validate_event_payload(self):

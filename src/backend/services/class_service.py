@@ -3,12 +3,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.models.user import User, UserRole
-from src.backend.models.class_model import Class
-from src.backend.models.course import Course
+from backend.models.user import User, UserRole
+from backend.models.class_model import Class
+from backend.models.course import Course
 
-from src.backend.repositories.class_repository import ClassRepository
-from src.backend.repositories.course_repository import CourseRepository
+from backend.repositories.class_repository import ClassRepository
+from backend.repositories.course_repository import CourseRepository
 
 
 class ClassService:
@@ -16,10 +16,6 @@ class ClassService:
         self.db = db
         self.class_repo = ClassRepository(db)
         self.course_repo = CourseRepository(db)
-
-    # =========================
-    # CREATE CLASS (Teacher Only)
-    # =========================
 
     async def create_class(
         self,
@@ -40,10 +36,6 @@ class ClassService:
         cls = Class(**data)
         return await self.class_repo.create(cls)
 
-    # =========================
-    # GET MY CLASSES (Teacher Only)
-    # =========================
-
     async def get_my_classes(
         self,
         current_user: User,
@@ -60,11 +52,7 @@ class ClassService:
             limit=limit
         )
 
-    # =========================
-    # GET CLASSES BY COURSE
     # Used by student to see available classes in a course
-    # =========================
-
     async def get_classes_by_course(
         self,
         course_id: UUID,
@@ -77,10 +65,6 @@ class ClassService:
             skip=skip,
             limit=limit
         )
-
-    # =========================
-    # UPDATE CLASS
-    # =========================
 
     async def update_class(
         self,
@@ -98,10 +82,6 @@ class ClassService:
 
         return await self.class_repo.update(db_class, data)
 
-    # =========================
-    # DELETE CLASS
-    # =========================
-
     async def delete_class(
         self,
         current_user: User,
@@ -116,10 +96,6 @@ class ClassService:
             raise PermissionError("You do not own this class.")
 
         return await self.class_repo.delete(class_id)
-
-    # =========================
-    # GET CLASS DETAIL
-    # =========================
 
     async def get_class_detail(
         self,

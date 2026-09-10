@@ -1,12 +1,7 @@
-"""
-provider_factory.py
-===================
-"""
-
 from typing import List, Optional
-from src.backend.core.config import settings
-from src.backend.llm.base.llm_providers import BaseLLMProvider
-from src.backend.observability.logging.logger import get_logger
+from backend.core.config import settings
+from backend.llm.base.llm_providers import BaseLLMProvider
+from backend.observability.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -35,11 +30,8 @@ def create_llm_provider() -> BaseLLMProvider:
         },
     )
 
-    # =====================================================
-    # OPENAI
-    # =====================================================
     if provider_name == "openai":
-        from src.backend.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
+        from backend.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
 
         if not settings.OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY is not set.")
@@ -54,11 +46,8 @@ def create_llm_provider() -> BaseLLMProvider:
             timeout=timeout,
         )
 
-    # =====================================================
-    # OPENROUTER
-    # =====================================================
     elif provider_name == "openrouter":
-        from src.backend.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
+        from backend.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
 
         if not settings.OPENROUTER_API_KEY:
             raise ValueError("OPENROUTER_API_KEY is not set.")
@@ -88,11 +77,8 @@ def create_llm_provider() -> BaseLLMProvider:
             require_provider=settings.OPENROUTER_REQUIRE_PROVIDER,
         )
 
-    # =====================================================
-    # GEMINI
-    # =====================================================
     elif provider_name == "gemini":
-        from src.backend.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
+        from backend.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
 
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is not set.")
@@ -107,11 +93,8 @@ def create_llm_provider() -> BaseLLMProvider:
             timeout=timeout,
         )
 
-    # =====================================================
-    # ANTHROPIC
-    # =====================================================
     elif provider_name == "anthropic":
-        from src.backend.llm.providers.anthropic_provider import AnthropicProvider
+        from backend.llm.providers.anthropic_provider import AnthropicProvider
 
         if not settings.ANTHROPIC_API_KEY:
             raise ValueError("ANTHROPIC_API_KEY is not set.")
@@ -124,11 +107,8 @@ def create_llm_provider() -> BaseLLMProvider:
             timeout=timeout,
         )
 
-    # =====================================================
-    # CUSTOM
-    # =====================================================
     elif provider_name == "custom":
-        from src.backend.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
+        from backend.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
 
         if not settings.CUSTOM_LLM_BASE_URL:
             raise ValueError("CUSTOM_LLM_BASE_URL is not set.")

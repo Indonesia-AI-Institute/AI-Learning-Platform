@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Dict, List
 import yaml
-from src.backend.llm.services.llm_service import LLMService
+from backend.llm.services.llm_service import LLMService
 
 
 class BaseAgent:

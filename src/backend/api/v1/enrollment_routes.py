@@ -3,17 +3,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from src.backend.api.deps import get_db, require_student, require_teacher
-from src.backend.services.enrollment_service import EnrollmentService
-from src.backend.schemas.enrollment.enrollment_create import EnrollmentCreate
-from src.backend.schemas.enrollment.enrollment_response import EnrollmentResponse
+from backend.api.deps import get_db, require_student, require_teacher
+from backend.services.enrollment_service import EnrollmentService
+from backend.schemas.enrollment.enrollment_create import EnrollmentCreate
+from backend.schemas.enrollment.enrollment_response import EnrollmentResponse
 
 router = APIRouter(prefix="/enrollments", tags=["Enrollments"])
 
-
-# ==============================
-# STUDENT ENROLL
-# ==============================
 
 @router.post(
     "/",
@@ -42,10 +38,6 @@ async def enroll_in_class(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# ==============================
-# STUDENT UNENROLL
-# ==============================
-
 @router.delete("/{enrollment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def unenroll_from_class(
     enrollment_id: UUID,
@@ -65,10 +57,6 @@ async def unenroll_from_class(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# ==============================
-# STUDENT VIEW OWN ENROLLMENTS
-# ==============================
-
 @router.get("/me", response_model=List[EnrollmentResponse])
 async def get_my_enrollments(
     skip: int = Query(0, ge=0),
@@ -87,10 +75,6 @@ async def get_my_enrollments(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-
-# ==============================
-# TEACHER VIEW CLASS ENROLLMENTS
-# ==============================
 
 @router.get("/class/{class_id}", response_model=List[EnrollmentResponse])
 async def get_class_enrollments(

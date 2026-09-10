@@ -4,18 +4,15 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.api.deps import get_db, require_teacher, get_current_user
-from src.backend.services.task_service import TaskService
-from src.backend.schemas.task.task_create import TaskCreate
-from src.backend.schemas.task.task_response import TaskResponse
-from src.backend.schemas.task.task_update import TaskUpdate
+from backend.api.deps import get_db, require_teacher, get_current_user
+from backend.services.task_service import TaskService
+from backend.schemas.task.task_create import TaskCreate
+from backend.schemas.task.task_response import TaskResponse
+from backend.schemas.task.task_update import TaskUpdate
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 
-# =========================
-# CREATE TASK
-# =========================
 @router.post(
     "/course/{course_id}",
     response_model=TaskResponse,
@@ -36,9 +33,6 @@ async def create_task(
     )
 
 
-# =========================
-# GET TASKS BY COURSE
-# =========================
 @router.get(
     "/course/{course_id}",
     response_model=List[TaskResponse]
@@ -58,10 +52,6 @@ async def get_tasks_by_course(
         skip,
         limit
     )
-
-#=========================
-# GET TASKS BY CLASS
-#=========================
 
 @router.get(
     "/class/{class_id}",
@@ -83,9 +73,6 @@ async def get_tasks_by_class(
         limit
     )
 
-# =========================
-# TASK DETAIL
-# =========================
 @router.get(
     "/{task_id}",
     response_model=TaskResponse
@@ -100,9 +87,6 @@ async def get_task_detail(
     return await service.get_task_detail(current_user, task_id)
 
 
-# =========================
-# UPDATE TASK
-# =========================
 @router.put(
     "/{task_id}",
     response_model=TaskResponse
@@ -122,9 +106,6 @@ async def update_task(
     )
 
 
-# =========================
-# DELETE TASK
-# =========================
 @router.delete(
     "/{task_id}",
     status_code=status.HTTP_204_NO_CONTENT

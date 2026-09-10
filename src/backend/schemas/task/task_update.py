@@ -1,6 +1,4 @@
 """
-schemas/task/task_update.py
-===========================
 Semua field optional (PATCH-style), kecuali title yang jika
 disertakan tidak boleh kosong.
 is_active wajib ada agar toggle active/inactive berfungsi.

@@ -1,20 +1,5 @@
 """
-banlist_filter.py
-=================
-
-Simple keyword banlist guardrail.
-
-Current Scope:
-✔ Exact keyword match
-✔ Case insensitive
-✔ Text prompt only
-✔ Trigger saat user kirim prompt
-
-Future Ready:
-- Regex filtering
-- Category filtering (violence, cheating, etc)
-- AI moderation API
-- Per-class / per-task banlist
+Simple keyword banlist guardrail (case-insensitive exact keyword match).
 """
 
 from typing import List, Tuple
@@ -44,10 +29,6 @@ class BanListFilter:
             if keyword.strip()
         ]
 
-    # ======================================================
-    # MAIN CHECK METHOD
-    # ======================================================
-
     def check(self, text: str) -> Tuple[bool, List[str]]:
         """
         Check apakah text mengandung banned keyword.
@@ -70,10 +51,6 @@ class BanListFilter:
         ]
 
         return len(matched_keywords) > 0, matched_keywords
-
-    # ======================================================
-    # OPTIONAL HELPER
-    # ======================================================
 
     def add_keyword(self, keyword: str):
         """Add keyword ke banlist runtime."""

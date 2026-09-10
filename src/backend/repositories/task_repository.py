@@ -4,8 +4,8 @@ from typing import List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.models.task import Task
-from src.backend.repositories.base_repository import BaseRepository
+from backend.models.task import Task
+from backend.repositories.base_repository import BaseRepository
 
 
 class TaskRepository(BaseRepository[Task]):

@@ -1,14 +1,6 @@
-"""
-chat_service.py
-===============
+from typing import Any, Dict, List
 
-Chat Orchestration Layer
-"""
-
-from typing import Any, Dict, List, AsyncGenerator
-
-from src.backend.models.chat_session import ChatSession
-from src.backend.agents.registry.agent_registry import AgentRegistry
+from backend.agents.registry.agent_registry import AgentRegistry
 
 
 class UnknownAgentError(Exception):
@@ -28,10 +20,6 @@ class ChatService:
     def __init__(self, agent_registry: AgentRegistry):
         self.agent_registry = agent_registry
 
-    # =====================================================
-    # INTERNAL
-    # =====================================================
-
     def _get_agent(self, agent_type: str):
         agent = self.agent_registry.get_agent(agent_type)
 
@@ -39,10 +27,6 @@ class ChatService:
             raise UnknownAgentError(f"Unknown agent type: {agent_type}")
 
         return agent
-
-    # =====================================================
-    # NON STREAM RESPONSE
-    # =====================================================
 
     async def generate(
         self,
@@ -60,10 +44,6 @@ class ChatService:
             messages=messages,
             **kwargs,
         )
-
-    # =====================================================
-    # STREAM RESPONSE
-    # =====================================================
 
     async def stream_generate(
         self,

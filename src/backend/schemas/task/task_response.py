@@ -1,6 +1,4 @@
 """
-schemas/task/task_response.py
-==============================
 is_active wajib ada di response agar:
 1. Frontend bisa menampilkan status active/inactive
 2. Toggle di edit page bisa pre-fill nilai yang benar

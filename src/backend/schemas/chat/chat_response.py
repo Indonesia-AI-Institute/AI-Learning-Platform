@@ -1,7 +1,4 @@
 """
-chat_response.py
-================
-
 Schema untuk non-streaming Chat Response.
 
 Digunakan untuk:

@@ -1,25 +1,18 @@
-"""
-auth_routes.py
-==============
-
-Authentication Routes
-"""
-
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.db.session import get_db
-from src.backend.api.deps import get_current_user
-from src.backend.services.auth_service import AuthService
-from src.backend.core.config import settings
+from backend.db.session import get_db
+from backend.api.deps import get_current_user
+from backend.services.auth_service import AuthService
+from backend.core.config import settings
 
-from src.backend.models.user import User
+from backend.models.user import User
 
-from src.backend.schemas.auth.register_request import RegisterRequest
-from src.backend.schemas.auth.login_request import LoginRequest
-from src.backend.schemas.auth.token_response import TokenResponse
-from src.backend.schemas.auth.user_response import UserResponse
+from backend.schemas.auth.register_request import RegisterRequest
+from backend.schemas.auth.login_request import LoginRequest
+from backend.schemas.auth.token_response import TokenResponse
+from backend.schemas.auth.user_response import UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -28,10 +21,6 @@ security = HTTPBearer(auto_error=False)
 COOKIE_NAME = "access_token"
 COOKIE_MAX_AGE = 60 * 60 * 24  # 24 hours
 
-
-# =====================================================
-# REGISTER
-# =====================================================
 
 @router.post(
     "/register",
@@ -62,10 +51,6 @@ async def register(
     return token_data
 
 
-# =====================================================
-# LOGIN
-# =====================================================
-
 @router.post("/login", response_model=TokenResponse)
 async def login(
     request: LoginRequest,
@@ -90,10 +75,6 @@ async def login(
 
     return token_data
 
-
-# =====================================================
-# LOGOUT
-# =====================================================
 
 @router.post("/logout")
 async def logout(
@@ -120,10 +101,6 @@ async def logout(
 
     return {"message": "Logged out successfully"}
 
-
-# =====================================================
-# GET CURRENT USER
-# =====================================================
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(

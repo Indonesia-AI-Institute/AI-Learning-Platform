@@ -1,7 +1,4 @@
 """
-direct_agent.py
-=====================
-
 DirectTutorAgent implements single-pass direct explanation behavior.
 """
 
@@ -20,10 +17,6 @@ class DirectTutorAgent(BaseAgent):
         llm_service: Any,
     ) -> None:
         super().__init__(agent_config_path, llm_service)
-
-    # ======================================================
-    # NON-STREAM RESPONSE
-    # ======================================================
 
     async def generate(
         self,
@@ -45,10 +38,6 @@ class DirectTutorAgent(BaseAgent):
             **kwargs,
         )
 
-    # ======================================================
-    # STREAM RESPONSE
-    # ======================================================
-
     async def stream_generate(
         self,
         messages: List[Dict[str, str]],
@@ -69,10 +58,6 @@ class DirectTutorAgent(BaseAgent):
             **kwargs,
         ):
             yield token
-
-    # ======================================================
-    # INTERNAL UTIL
-    # ======================================================
 
     def _inject_system_prompt(
         self,

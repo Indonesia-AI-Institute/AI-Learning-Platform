@@ -1,9 +1,4 @@
-"""
-deps.py
-=======
-
-Dependency Injection Layer
-"""
+"""Dependency injection layer: auth, role guards, and singleton service factories."""
 
 from functools import lru_cache
 
@@ -11,23 +6,16 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.llm.services.llm_service import LLMService
-from src.backend.agents.registry.agent_registry import AgentRegistry
-from src.backend.services.chat_service import ChatService
-from src.backend.db.session import get_db
-from src.backend.models.user import User, UserRole
-from src.backend.repositories.user_repository import UserRepository
-from src.backend.auth.security import decode_access_token
+from backend.llm.services.llm_service import LLMService
+from backend.agents.registry.agent_registry import AgentRegistry
+from backend.services.chat_service import ChatService
+from backend.db.session import get_db
+from backend.models.user import User, UserRole
+from backend.repositories.user_repository import UserRepository
+from backend.auth.security import decode_access_token
 
-# =========================
-# SECURITY SCHEME
-# =========================
 security = HTTPBearer(auto_error=False)  # auto_error=False supaya tidak langsung 403 jika tidak ada Bearer
 
-
-# =========================================================
-# LLM SERVICE (Singleton)
-# =========================================================
 
 @lru_cache()
 def get_llm_service() -> LLMService:
@@ -46,10 +34,6 @@ def get_chat_service() -> ChatService:
     return ChatService(agent_registry=registry)
 
 
-# =========================================================
-# AUTH DEPENDENCY
-# =========================================================
-
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -65,10 +49,8 @@ async def get_current_user(
 
     token: str | None = None
 
-    # 1️⃣ Coba dari cookie dulu
     token = request.cookies.get("access_token")
 
-    # 2️⃣ Fallback ke Bearer header
     if not token and credentials:
         token = credentials.credentials
 
@@ -105,10 +87,6 @@ async def get_current_user(
 
     return user
 
-
-# =========================================================
-# ROLE DEPENDENCIES
-# =========================================================
 
 async def require_teacher(
     current_user: User = Depends(get_current_user),

@@ -1,10 +1,10 @@
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.models.chat_history import ChatHistory
+from backend.models.chat_history import ChatHistory
 
 
 class ChatHistoryRepository:
@@ -12,34 +12,12 @@ class ChatHistoryRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    # =========================
-    # CREATE MESSAGE
-    # =========================
     async def create_message(self, message: ChatHistory) -> ChatHistory:
         self.db.add(message)
         await self.db.commit()
         await self.db.refresh(message)
         return message
 
-    # =========================
-    # GET SESSION HISTORY
-    # =========================
-    async def get_session_messages(
-        self,
-        session_id: UUID
-    ) -> List[ChatHistory]:
-
-        result = await self.db.execute(
-            select(ChatHistory)
-            .where(ChatHistory.session_id == session_id)
-            .order_by(ChatHistory.message_index.asc())
-        )
-
-        return result.scalars().all()
-
-    # =========================
-    # GET LAST MESSAGE INDEX
-    # =========================
     async def get_last_message_index(
         self,
         session_id: UUID
@@ -57,9 +35,6 @@ class ChatHistoryRepository:
 
         return last_index
 
-    # =========================
-    # UPDATE MESSAGE
-    # =========================
     async def update_message(
         self,
         message_id: UUID,

@@ -3,19 +3,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from src.backend.api.deps import get_db, require_teacher, get_current_user
-from src.backend.services.class_service import ClassService
+from backend.api.deps import get_db, require_teacher, get_current_user
+from backend.services.class_service import ClassService
 
-from src.backend.schemas.classes.class_create import ClassCreate
-from src.backend.schemas.classes.class_update import ClassUpdate
-from src.backend.schemas.classes.class_response import ClassResponse
+from backend.schemas.classes.class_create import ClassCreate
+from backend.schemas.classes.class_update import ClassUpdate
+from backend.schemas.classes.class_response import ClassResponse
 
 router = APIRouter(prefix="/classes", tags=["Classes"])
 
-
-# =========================
-# CREATE CLASS
-# =========================
 
 @router.post("/", response_model=ClassResponse)
 async def create_class(
@@ -32,12 +28,8 @@ async def create_class(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-# =========================
-# GET CLASSES BY COURSE
-# For student: see classes in a course before enrolling
-# MUST be before /{class_id} to avoid route conflict
-# =========================
-
+# For student: see classes in a course before enrolling.
+# MUST be before /{class_id} to avoid route conflict.
 @router.get("/course/{course_id}", response_model=List[ClassResponse])
 async def get_classes_by_course(
     course_id: UUID,
@@ -57,10 +49,6 @@ async def get_classes_by_course(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# =========================
-# GET MY CLASSES
-# =========================
-
 @router.get("/", response_model=list[ClassResponse])
 async def get_my_classes(
     skip: int = 0,
@@ -74,10 +62,6 @@ async def get_my_classes(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-
-# =========================
-# GET CLASS DETAIL
-# =========================
 
 @router.get("/{class_id}", response_model=ClassResponse)
 async def get_class_detail(
@@ -93,10 +77,6 @@ async def get_class_detail(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-
-# =========================
-# UPDATE CLASS
-# =========================
 
 @router.put("/{class_id}", response_model=ClassResponse)
 async def update_class(
@@ -115,10 +95,6 @@ async def update_class(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-
-# =========================
-# DELETE CLASS
-# =========================
 
 @router.delete("/{class_id}")
 async def delete_class(

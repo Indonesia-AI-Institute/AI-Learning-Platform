@@ -1,24 +1,6 @@
 """
-health_routes.py
-================
-
-Health check endpoints untuk monitoring service.
-
-Digunakan untuk:
-- Load balancer health check
-- Docker container health check
-- Kubernetes readiness / liveness probe
-- Simple uptime monitoring
-
-Scope saat ini:
-✔ API Running Check
-✔ Version Info
-✔ Basic Status Info
-
-Future:
-- DB Health Check
-- Redis Check
-- LLM Provider Connectivity Check
+Health check endpoints for monitoring: load balancer checks, Docker/Kubernetes
+readiness and liveness probes, and basic uptime monitoring.
 """
 
 from datetime import datetime, timezone
@@ -29,9 +11,6 @@ from fastapi import APIRouter
 router = APIRouter()
 
 
-# =========================================================
-# BASIC HEALTH CHECK
-# =========================================================
 @router.get("/health", tags=["Health"])
 async def health_check():
     """
@@ -49,9 +28,6 @@ async def health_check():
     }
 
 
-# =========================================================
-# READINESS CHECK (Future: dependencies ready?)
-# =========================================================
 @router.get("/health/ready", tags=["Health"])
 async def readiness_check():
     """
@@ -69,9 +45,6 @@ async def readiness_check():
     }
 
 
-# =========================================================
-# LIVENESS CHECK (Future: process still alive?)
-# =========================================================
 @router.get("/health/live", tags=["Health"])
 async def liveness_check():
     """

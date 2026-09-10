@@ -2,19 +2,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.api.deps import get_db, get_current_user, require_teacher
-from src.backend.services.course_service import CourseService
+from backend.api.deps import get_db, get_current_user, require_teacher
+from backend.services.course_service import CourseService
 
-from src.backend.schemas.course.course_create import CourseCreate
-from src.backend.schemas.course.course_response import CourseResponse
-from src.backend.schemas.course.course_update import CourseUpdate
+from backend.schemas.course.course_create import CourseCreate
+from backend.schemas.course.course_response import CourseResponse
+from backend.schemas.course.course_update import CourseUpdate
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
 
-
-# =========================
-# CREATE COURSE
-# =========================
 
 @router.post("/create/", response_model=CourseResponse)
 async def create_course(
@@ -29,11 +25,7 @@ async def create_course(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# =========================
-# GET ALL ACTIVE COURSES (Student browse)
-# MUST be before /{course_id} to avoid route conflict
-# =========================
-
+# MUST be before /{course_id} to avoid route conflict.
 @router.get("/all", response_model=list[CourseResponse])
 async def get_all_courses(
     skip: int = 0,
@@ -45,10 +37,6 @@ async def get_all_courses(
     return await service.get_all_active_courses(skip=skip, limit=limit)
 
 
-# =========================
-# GET MY COURSES
-# =========================
-
 @router.get("/", response_model=list[CourseResponse])
 async def get_my_courses(
     skip: int = 0,
@@ -59,10 +47,6 @@ async def get_my_courses(
     service = CourseService(db)
     return await service.get_my_courses(current_user, skip, limit)
 
-
-# =========================
-# GET COURSE DETAIL
-# =========================
 
 @router.get("/{course_id}", response_model=CourseResponse)
 async def get_course_detail(
@@ -80,10 +64,6 @@ async def get_course_detail(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-
-# =========================
-# UPDATE COURSE
-# =========================
 
 @router.put("/{course_id}", response_model=CourseResponse)
 async def update_course(
@@ -104,10 +84,6 @@ async def update_course(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-
-# =========================
-# DELETE COURSE
-# =========================
 
 @router.delete("/{course_id}")
 async def delete_course(

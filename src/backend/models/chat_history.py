@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
 
-from src.backend.models.base import BaseModel
+from backend.models.base import BaseModel
 
 
 class MessageRole(str, enum.Enum):
@@ -29,10 +29,6 @@ class MessageStatus(str, enum.Enum):
 class ChatHistory(BaseModel):
     __tablename__ = "chat_histories"
 
-    # =========================
-    # CORE REFERENCES
-    # =========================
-
     session_id = Column(
         UUID(as_uuid=True),
         ForeignKey("chat_sessions.id", ondelete="CASCADE"),
@@ -45,10 +41,6 @@ class ChatHistory(BaseModel):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=True,  # assistant messages don't have user
     )
-
-    # =========================
-    # MESSAGE CORE
-    # =========================
 
     role = Column(
         Enum(MessageRole, name="message_role_enum"),
@@ -71,10 +63,6 @@ class ChatHistory(BaseModel):
         default=MessageStatus.COMPLETED,
         nullable=False,
     )
-
-    # =========================
-    # TOKEN & MODEL METADATA
-    # =========================
 
     model_name = Column(
         String,
@@ -113,10 +101,6 @@ class ChatHistory(BaseModel):
         JSON,
         nullable=True,
     )
-
-    # =========================
-    # RELATIONSHIPS
-    # =========================
 
     session = relationship(
         "ChatSession",

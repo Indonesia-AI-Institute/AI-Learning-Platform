@@ -1,6 +1,4 @@
 """
-schemas/task/task_create.py
-===========================
 Title wajib diisi dan tidak boleh berupa string kosong/whitespace.
 """
 

@@ -2,50 +2,73 @@ name: ai-learning-platform
 
 services:
 
-  # ===================================================
+  # DATABASE
+  db:
+    image: postgres:15-alpine
+    container_name: ailearning-db
+    restart: unless-stopped
+    env_file:
+      - .env.be
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - ai-learning-net
+    ports:
+      - "5432:5432"
+    healthcheck:
+      # $$ defers expansion to the container shell (POSTGRES_* come from env_file)
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   # BACKEND API
-  # ===================================================
   api:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
     image: ghcr.io/indonesia-ai-institute/ai-learning-platform-api:latest
     container_name: ailearning-api
     restart: unless-stopped
     env_file:
-      - .env
+      - .env.be
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
+      # Host:container — container side must match PORT in .env.be if changed
       - "8000:8000"
     networks:
-      - iaii-network
-    command: >
-      sh -c "
-        echo '⏳ Running migrations...' &&
-        alembic upgrade head &&
-        echo '🚀 Starting API...' &&
-        uvicorn src.backend.main:app --host 0.0.0.0 --port 8000
-      "
+      - ai-learning-net
     volumes:
-      # Hot reload untuk development (comment out untuk production)
-      # - ./src:/app/src
-      - ./alembic:/app/alembic
-      - ./alembic.ini:/app/alembic.ini
+      # Uncomment for hot reload
+      # - ./src/backend:/app/backend
+      - ./src/backend/alembic:/app/backend/alembic
+      - ./src/backend/alembic.ini:/app/backend/alembic.ini
 
-  # ===================================================
   # FRONTEND
-  # ===================================================
   frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      args:
+        # In production, replace with the public domain/IP
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
     image: ghcr.io/indonesia-ai-institute/ai-learning-platform-frontend:latest
     container_name: ailearning-frontend
     restart: unless-stopped
-    env_file:
-      - .env
     ports:
       - "3000:3000"
     networks:
-      - iaii-network
+      - ai-learning-net
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
 
-# ===================================================
-# NETWORKS
-# ===================================================
 networks:
-  iaii-network:
-    name: iaii-network
+  ai-learning-net:
     driver: bridge
+
+volumes:
+  pgdata:
+    driver: local

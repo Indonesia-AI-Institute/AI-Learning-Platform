@@ -11,8 +11,8 @@ Install: pip install anthropic
 from typing import Any, Dict, List
 import time
 
-from src.backend.llm.base.llm_providers import BaseLLMProvider, llm_provider_registry
-from src.backend.observability.logging.logger import get_logger
+from backend.llm.base.llm_providers import BaseLLMProvider, llm_provider_registry
+from backend.observability.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -46,10 +46,6 @@ class AnthropicProvider(BaseLLMProvider):
             "provider.anthropic.init",
             extra={"event": "provider.anthropic.init", "model": model_name},
         )
-
-    # ======================================================
-    # NON STREAM
-    # ======================================================
 
     async def generate(
         self,
@@ -99,10 +95,6 @@ class AnthropicProvider(BaseLLMProvider):
         except Exception as e:
             logger.exception("provider.anthropic.error", extra={"error": str(e)})
             raise RuntimeError(f"Anthropic generate error: {str(e)}")
-
-    # ======================================================
-    # STREAM
-    # ======================================================
 
     async def stream_generate(
         self,

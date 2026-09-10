@@ -26,7 +26,6 @@ def auto_import_providers():
     for module_info in pkgutil.iter_modules([str(package_dir)]):
         module_name = module_info.name
 
-        # Skip private / init
         if module_name.startswith("_"):
             continue
 

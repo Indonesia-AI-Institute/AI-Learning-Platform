@@ -11,8 +11,8 @@ import time
 
 from openai import AsyncOpenAI
 
-from src.backend.llm.base.llm_providers import BaseLLMProvider
-from src.backend.observability.logging.logger import get_logger
+from backend.llm.base.llm_providers import BaseLLMProvider
+from backend.observability.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -80,10 +80,6 @@ class OpenAICompatibleProvider(BaseLLMProvider):
 
         return {"provider": routing}
 
-    # ======================================================
-    # NON STREAM
-    # ======================================================
-
     async def generate(
         self,
         messages: List[Dict[str, str]],
@@ -128,10 +124,6 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         except Exception as e:
             logger.exception(f"provider.{self.provider_label}.error", extra={"error": str(e)})
             raise RuntimeError(f"{self.provider_label} generate error: {str(e)}")
-
-    # ======================================================
-    # STREAM
-    # ======================================================
 
     async def stream_generate(
         self,

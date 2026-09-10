@@ -1,6 +1,34 @@
 # CHANGELOG
 
 
+## v1.0.5 (2026-09-10)
+
+### Refactoring
+
+- **backend**: Restructure into src/backend, tidy Docker/deployment, cleanup
+  ([`042ae05`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/042ae058e3581935a93b6bfbcbf240f1bc40276c))
+
+- Move alembic/, alembic.ini, Dockerfile, .dockerignore, pyproject.toml, uv.lock into src/backend/
+  so the backend is a self-contained uv project, matching the src/frontend/ layout. - Switch the
+  backend Docker build from pip + requirements.txt to uv sync, fixing runtime deps (alembic,
+  sqlalchemy, asyncpg, bcrypt, cryptography, python-multipart, email-validator) that were previously
+  only covered by a stale, corrupted requirements.txt. - Rename all `src.backend.*` imports to
+  `backend.*`; the Docker image now copies straight to /app/backend with no redundant src/ layer. -
+  Add src/backend/entrypoint.sh wrapping migrations + uvicorn startup; simplify both docker-compose
+  files accordingly. - Wire HOST/PORT fully to runtime with no build-time default (drop EXPOSE,
+  which can't take a runtime value); add a real HEALTHCHECK against the existing /api/v1/health/live
+  endpoint. - Split .env.example into .env.be.example / .env.fe.example. - Add
+  docker-compose.prod.yml (registry-only) and restore docker-compose.yml as the local-build/dev
+  file, matching README's existing documented convention. - Fix IMAGE_TAG never being applied in
+  docker-compose.prod.yml (deploy.sh exported it but nothing read it); remove the alembic
+  bind-mounts from prod compose (they overrode the image's baked-in migrations and broke the
+  no-clone deploy path documented in README). - Remove excessive comments and confirmed-dead code
+  across src/backend/ (core/constants.py, agents/registry/agent_factory.py, several unused
+  repository methods and helpers), verified via repo-wide grep before removal.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+
 ## v1.0.4 (2026-08-24)
 
 ### Refactoring

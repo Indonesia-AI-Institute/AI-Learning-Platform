@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * RegisterForm.tsx
- * ================
- * Register form component using shadcn + react-hook-form + zod.
- */
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -38,11 +32,6 @@ import {
 
 import { useAuth } from "@/hooks/useAuth";
 
-// =========================================================
-// SCHEMA
-// =========================================================
-
-// Zod enum for the role field.
 const RoleEnum = z.enum(["student", "teacher"]);
 
 const registerSchema = z.object({
@@ -53,10 +42,6 @@ const registerSchema = z.object({
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
-
-// =========================================================
-// COMPONENT
-// =========================================================
 
 export function RegisterForm() {
   const { register, isRegisterLoading, registerError } = useAuth();

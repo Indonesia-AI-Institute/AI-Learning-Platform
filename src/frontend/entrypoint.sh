@@ -26,4 +26,4 @@ export PORT="${PORT:-3000}"
 # container, so this is an unconditional override, not a default.
 export HOSTNAME=0.0.0.0
 
-exec node server.js
+exec bun server.js

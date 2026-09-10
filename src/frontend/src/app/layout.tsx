@@ -1,9 +1,3 @@
-/**
- * app/layout.tsx
- * ==============
- * Root Server Layout.
- */
-
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { Providers } from "@/components/providers";

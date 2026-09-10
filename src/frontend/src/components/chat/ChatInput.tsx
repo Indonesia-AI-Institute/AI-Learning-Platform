@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * ChatInput.tsx
- * =============
- * Message input area with send button.
- */
-
 import { useState, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Send, Square } from "lucide-react";

@@ -1,8 +1,3 @@
-/**
- * chat.types.ts
- * =============
- */
-
 export interface ChatSession {
   id: string;
   student_id: string;

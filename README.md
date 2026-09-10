@@ -48,7 +48,7 @@ A full-stack AI-powered learning platform that enables teachers to manage course
 | Language | TypeScript |
 | Styling | Tailwind CSS |
 | State | TanStack Query |
-| Package Manager | pnpm |
+| Package Manager | Bun |
 
 **Infrastructure**
 
@@ -92,7 +92,7 @@ When a student sends a message, two things happen in parallel: the LLM streams a
 
 For local development without Docker:
 - Python 3.11
-- Node.js 20+ and pnpm
+- Bun 1.4+ (frontend package manager and runtime)
 - PostgreSQL 15
 
 ---
@@ -115,9 +115,10 @@ cd AI-Learning-Platform
 ```bash
 cp .env.be.example .env.be
 cp .env.fe.example .env.fe
+cp .env.example .env
 ```
 
-Fill in the required values in `.env.be` and `.env.fe`. See the [Environment Variables](#environment-variables) section for the full reference.
+Fill in the required values in `.env.be` and `.env.fe`. `.env` is optional — it configures `docker compose` itself (host port mappings) rather than the apps. See the [Environment Variables](#environment-variables) section for the full reference.
 
 **3. Pull images from GHCR and start**
 
@@ -273,8 +274,8 @@ PYTHONPATH="$(pwd)" uv run --project backend uvicorn backend.main:app --reload -
 
 ```bash
 cd src/frontend
-pnpm install
-pnpm dev
+bun install
+bun run dev
 ```
 
 ---
@@ -295,6 +296,8 @@ Copy `.env.be.example` to `.env.be` (backend) and `.env.fe.example` to `.env.fe`
 | `NEXT_PUBLIC_API_URL` | Yes | API base URL accessible from the browser |
 
 When running with Docker, `DATABASE_URL` must use `db` as the host (the Docker service name), not `localhost`.
+
+The root `.env` (copied from `.env.example`) is separate — it configures `docker compose` itself rather than the apps, since env vars in `.env.be`/`.env.fe` aren't visible to Compose's own `${VAR}` substitution. Use it to change host port mappings (`API_PORT`, `FRONTEND_PORT` — these also override the container's own `PORT`, so the mapping never drifts out of sync). Optional — everything defaults to the values already in the compose files.
 
 ---
 
@@ -456,10 +459,10 @@ docker compose build api && docker compose up -d api
 
 **Frontend cannot reach the API**
 
-`NEXT_PUBLIC_API_URL` is baked into the Next.js build at build time. Changing it in `.env.fe` alone is not enough — you must rebuild the frontend image:
+`NEXT_PUBLIC_API_URL` is read at container start (`entrypoint.sh` generates `public/env-config.js`, exposed to the browser as `window.__ENV__`) and every client-side call goes through `getApiUrl()` (`src/lib/env.ts`), which reads that — not the build-time value. Changing it in `.env.fe` and restarting the container is enough; no rebuild needed:
 
 ```bash
-docker compose build frontend && docker compose up -d frontend
+docker compose up -d frontend
 ```
 
 For local development, the value should be `http://localhost:8000/api/v1`.

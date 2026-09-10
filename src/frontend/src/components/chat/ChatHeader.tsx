@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * ChatHeader.tsx
- * ==============
- * Top bar of chat window — session title, status, end/back button.
- */
-
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, StopCircle } from "lucide-react";

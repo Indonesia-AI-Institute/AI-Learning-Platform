@@ -19,9 +19,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env.fe
-    ports:
-      # Host:container — container side must match PORT in .env.fe if changed
-      - "3000:3000"
     networks:
       - ai-learning-net
 

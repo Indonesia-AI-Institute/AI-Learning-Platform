@@ -1,7 +1,3 @@
-/**
- * task.types.ts
- */
-
 export interface ClassInfo {
   id: string;
   name: string;

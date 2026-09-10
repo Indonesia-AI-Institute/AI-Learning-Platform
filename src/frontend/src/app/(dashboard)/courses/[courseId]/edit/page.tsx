@@ -27,7 +27,6 @@ export default function EditCoursePage() {
     queryFn: () => courseService.getCourseDetail(courseId),
   });
 
-  // Pre-fill form saat data tersedia
   useEffect(() => {
     if (!course) return;
     setTitle(course.title ?? "");
@@ -63,7 +62,6 @@ export default function EditCoursePage() {
     setFormError("");
     setTitleError("");
 
-    // Validasi title tidak boleh kosong
     if (!title.trim()) {
       setTitleError("Course title is required and cannot be empty.");
       return;
@@ -124,7 +122,6 @@ export default function EditCoursePage() {
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
-                // Clear error saat user mulai mengetik
                 if (e.target.value.trim()) setTitleError("");
               }}
               placeholder="Enter course title"

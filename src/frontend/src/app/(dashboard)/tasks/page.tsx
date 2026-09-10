@@ -14,7 +14,6 @@ import { ClipboardList, Calendar, Search } from "lucide-react";
 import { Task } from "@/types/task.types";
 import { Class } from "@/types/class.types";
 
-// Extended task with class info for display
 interface TaskWithClass extends Task {
   className?: string;
   classId?: string;
@@ -28,14 +27,12 @@ export default function TasksPage() {
   const [search, setSearch] = useState("");
   const [filterClass, setFilterClass] = useState<string>("all");
 
-  // Student: enrolled classes → tasks
   const { data: enrollments } = useQuery({
     queryKey: ["myEnrollments"],
     queryFn: () => enrollmentService.getMyEnrollments(),
     enabled: !isTeacher,
   });
 
-  // Teacher: own classes → tasks
   const { data: myClasses } = useQuery({
     queryKey: ["myClasses"],
     queryFn: () => classService.getMyClasses(),
@@ -70,7 +67,6 @@ export default function TasksPage() {
         })
       );
 
-      // Flatten and deduplicate
       const all = tasksByClass.flat();
       const seen = new Set<string>();
       return all.filter((t) => {
@@ -95,7 +91,6 @@ export default function TasksPage() {
     });
   }, [tasksWithClass, search, filterClass]);
 
-  // Unique classes for filter dropdown
   const uniqueClasses = useMemo(() => {
     if (!tasksWithClass) return [];
     const seen = new Set<string>();

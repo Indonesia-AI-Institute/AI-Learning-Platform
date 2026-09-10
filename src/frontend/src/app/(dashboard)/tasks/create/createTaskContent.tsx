@@ -1,9 +1,5 @@
 "use client";
 
-/**
- * Teacher creates a new task for a course
- */
-
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";

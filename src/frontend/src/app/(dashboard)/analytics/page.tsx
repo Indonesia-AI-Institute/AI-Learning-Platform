@@ -154,14 +154,12 @@ export default function TeacherAnalyticsPage() {
     queryFn: () => courseService.getMyCourses(),
   });
 
-  // For task filter: need a class selected
   const { data: tasks } = useQuery({
     queryKey: ["tasksByClass", selectedClassId],
     queryFn: () => taskService.getTasksByClass(selectedClassId!),
     enabled: filterLevel === "task" && !!selectedClassId,
   });
 
-  // Determine active selected id
   const activeId =
     filterLevel === "class" ? selectedClassId :
     filterLevel === "course" ? selectedCourseId :
@@ -179,7 +177,6 @@ export default function TeacherAnalyticsPage() {
     enabled: !!activeId,
   });
 
-  // Items shown in selector list
   const allItems =
     filterLevel === "class" ? (classes ?? []) :
     filterLevel === "course" ? (courses ?? []) :
@@ -207,7 +204,8 @@ export default function TeacherAnalyticsPage() {
   const handleLevelChange = (level: FilterLevel) => {
     setFilterLevel(level);
     setSelectorSearch("");
-    // Keep class selection when switching to task
+    // Only reset the task pick — class/course selection stays so switching
+    // back to "task" doesn't lose which class it was scoped to.
     if (level !== "task") setSelectedTaskId(null);
   };
 

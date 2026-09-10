@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * Navbar.tsx
- * ==========
- * Top navigation bar with page title and logout button.
- */
-
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";

@@ -1,7 +1,3 @@
-/**
- * chat.service.ts
- */
-
 import api from "@/lib/api";
 import {
   ChatSession,

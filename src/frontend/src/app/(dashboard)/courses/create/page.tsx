@@ -1,9 +1,5 @@
 "use client";
 
-/**
- * app/(dashboard)/courses/create/page.tsx
- */
-
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";

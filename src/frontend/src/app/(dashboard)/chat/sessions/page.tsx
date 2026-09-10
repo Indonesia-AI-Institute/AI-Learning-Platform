@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * app/(dashboard)/chat/sessions/page.tsx
- * List all chat sessions for the student.
- */
-
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";

@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * StudentDashboard.tsx
- * ====================
- * Dashboard content for student role.
- */
-
 import { useQuery } from "@tanstack/react-query";
 import { MessageSquare, Zap, Clock, TrendingUp } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";

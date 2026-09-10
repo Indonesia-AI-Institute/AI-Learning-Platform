@@ -1,9 +1,5 @@
 "use client";
 
-/**
- * app/(dashboard)/dashboard/page.tsx
- */
-
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";

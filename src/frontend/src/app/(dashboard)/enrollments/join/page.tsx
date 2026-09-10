@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * app/(dashboard)/enrollments/join/page.tsx
- * Student inputs class_id to enroll
- */
-
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";

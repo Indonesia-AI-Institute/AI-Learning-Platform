@@ -1,9 +1,3 @@
-/**
- * user.service.ts
- * ===============
- * User API calls.
- */
-
 import api from "@/lib/api";
 import { User } from "@/types/auth.types";
 

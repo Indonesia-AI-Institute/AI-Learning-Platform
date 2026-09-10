@@ -1,9 +1,3 @@
-/**
- * auth.service.ts
- * ===============
- * Auth API calls.
- */
-
 import api from "@/lib/api";
 import { LoginRequest, RegisterRequest, TokenResponse } from "@/types/auth.types";
 

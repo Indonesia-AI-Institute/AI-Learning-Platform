@@ -1,12 +1,7 @@
 "use client";
 
-/**
- * components/providers.tsx
- * ========================
- * Client-side providers wrapper.
- * Isolated here so layout.tsx can stay a Server Component.
- */
-
+// Isolated here (rather than in layout.tsx directly) so the root layout
+// can stay a Server Component.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -16,7 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 1000 * 60, // 1 menit default
+            staleTime: 1000 * 60,
             retry: false,
           },
         },

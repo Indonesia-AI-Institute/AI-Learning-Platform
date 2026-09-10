@@ -1,9 +1,3 @@
-/**
- * auth.types.ts
- * =============
- * Type definitions for authentication.
- */
-
 export type UserRole = "student" | "teacher";
 
 export interface User {

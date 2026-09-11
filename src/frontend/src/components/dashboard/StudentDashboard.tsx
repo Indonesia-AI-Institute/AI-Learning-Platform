@@ -1,17 +1,11 @@
 "use client";
 
-/**
- * StudentDashboard.tsx
- * ====================
- * Dashboard content for student role.
- */
-
 import { useQuery } from "@tanstack/react-query";
 import { MessageSquare, Zap, Clock, TrendingUp } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { analyticsService } from "@/services/analytics.service";
 
-function formatDuration(seconds: number): string {
+export function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m`;

@@ -1,15 +1,11 @@
 "use client";
 
-/**
- * app/(dashboard)/enrollments/join/page.tsx
- * Student inputs class_id to enroll
- */
-
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { enrollmentService } from "@/services/enrollment.service";
+import { getErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,18 +20,12 @@ export default function JoinClassPage() {
   const enrollMutation = useMutation({
     mutationFn: () => enrollmentService.enroll({ class_id: classId }),
     onSuccess: () => {
-      // Invalidate enrollments cache supaya class list terupdate
       queryClient.invalidateQueries({ queryKey: ["myEnrollments"] });
       queryClient.invalidateQueries({ queryKey: ["enrolledClasses"] });
       router.push("/classes");
     },
-    onError: (err: any) => {
-      const detail = err?.response?.data?.detail;
-      if (typeof detail === "string") {
-        setError(detail);
-      } else {
-        setError("Failed to join class. Please check the class ID and try again.");
-      }
+    onError: (err: unknown) => {
+      setError(getErrorMessage(err, "Failed to join class. Please check the class ID and try again."));
     },
   });
 

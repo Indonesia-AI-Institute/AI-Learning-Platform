@@ -1,8 +1,3 @@
-/**
- * analytics.types.ts
- * ==================
- */
-
 export interface StudentAnalytics {
   total_sessions: number;
   total_prompts: number;

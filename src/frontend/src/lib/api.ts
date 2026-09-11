@@ -1,12 +1,3 @@
-/**
- * api.ts
- * ======
- * Axios instance with base config.
- * - Base URL from env
- * - Credentials include (for httpOnly cookie)
- * - Auto redirect to login on 401 (with guard to prevent redirect loop)
- */
-
 import axios from "axios";
 import { getApiUrl } from "./env";
 
@@ -18,13 +9,8 @@ const api = axios.create({
   },
 });
 
-// =========================================================
-// RESPONSE INTERCEPTOR
-// =========================================================
-
-// Guard: pastikan redirect hanya terjadi sekali
-// tanpa ini, multiple 401 responses (auth/me + request lain)
-// akan trigger window.location.href berkali-kali → page loop
+// Without this guard, concurrent 401s (e.g. auth/me + another request)
+// would each trigger window.location.href, looping the redirect.
 let isRedirecting = false;
 
 api.interceptors.response.use(
@@ -35,7 +21,6 @@ api.interceptors.response.use(
       typeof window !== "undefined" &&
       !isRedirecting
     ) {
-      // Jangan redirect kalau sudah di halaman login
       if (!window.location.pathname.includes("/login")) {
         isRedirecting = true;
         window.location.href = "/login";

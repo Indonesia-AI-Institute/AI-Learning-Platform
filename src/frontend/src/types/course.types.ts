@@ -1,7 +1,3 @@
-/**
- * course.types.ts
- */
-
 export interface TeacherInfo {
   id: string;
   full_name: string;

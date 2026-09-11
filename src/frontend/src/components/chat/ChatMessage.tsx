@@ -38,7 +38,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
               components={{
-                code({ node, className, children, ...props }) {
+                code({ node: _node, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || "");
                   const isInline = !match && !className;
                   

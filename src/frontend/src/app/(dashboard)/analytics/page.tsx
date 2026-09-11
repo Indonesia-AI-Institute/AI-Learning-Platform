@@ -18,7 +18,14 @@ import {
 
 type FilterLevel = "course" | "class" | "task";
 
-const PROMPT_COLS = [
+// Structural type covering just what the selector list actually reads —
+// classes, courses, and tasks each satisfy this without needing to
+// reconcile their full, unrelated shapes into one union.
+type SelectableItem = { id: string; name?: string; title?: string };
+
+type PromptColKey = Exclude<keyof PromptClassificationRow, "student_id" | "total_prompts">;
+
+const PROMPT_COLS: { key: PromptColKey; label: string }[] = [
   { key: "direct_answer_pct", label: "Direct" },
   { key: "explanation_pct", label: "Explain" },
   { key: "step_by_step_pct", label: "Steps" },
@@ -33,11 +40,9 @@ const PROMPT_COLS = [
 function ClassificationTable({
   data,
   onViewStudent,
-  selectedTaskId,
 }: {
   data: PromptClassificationRow[];
   onViewStudent: (studentId: string) => void;
-  selectedTaskId?: string;
 }) {
   const [search, setSearch] = useState("");
 
@@ -55,7 +60,7 @@ function ClassificationTable({
   const chartData = PROMPT_COLS.map((col) => ({
     name: col.label,
     avg: data.length
-      ? Math.round(data.reduce((sum, row) => sum + ((row as any)[col.key] ?? 0), 0) / data.length)
+      ? Math.round(data.reduce((sum, row) => sum + (row[col.key] ?? 0), 0) / data.length)
       : 0,
   }));
 
@@ -71,7 +76,7 @@ function ClassificationTable({
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
             <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v: any) => `${v}%`} />
+            <Tooltip formatter={(value) => `${value}%`} />
             <Bar dataKey="avg" fill="#6366f1" radius={[4, 4, 0, 0]} name="Avg %" />
           </BarChart>
         </ResponsiveContainer>
@@ -112,7 +117,7 @@ function ClassificationTable({
                 <td className="px-3 py-2.5 text-right font-medium">{row.total_prompts}</td>
                 {PROMPT_COLS.map((col) => (
                   <td key={col.key} className="px-3 py-2.5 text-right">
-                    {((row as any)[col.key] ?? 0).toFixed(1)}%
+                    {(row[col.key] ?? 0).toFixed(1)}%
                   </td>
                 ))}
                 <td className="px-3 py-2.5 text-center">
@@ -154,14 +159,12 @@ export default function TeacherAnalyticsPage() {
     queryFn: () => courseService.getMyCourses(),
   });
 
-  // For task filter: need a class selected
   const { data: tasks } = useQuery({
     queryKey: ["tasksByClass", selectedClassId],
     queryFn: () => taskService.getTasksByClass(selectedClassId!),
     enabled: filterLevel === "task" && !!selectedClassId,
   });
 
-  // Determine active selected id
   const activeId =
     filterLevel === "class" ? selectedClassId :
     filterLevel === "course" ? selectedCourseId :
@@ -179,20 +182,18 @@ export default function TeacherAnalyticsPage() {
     enabled: !!activeId,
   });
 
-  // Items shown in selector list
-  const allItems =
-    filterLevel === "class" ? (classes ?? []) :
-    filterLevel === "course" ? (courses ?? []) :
-    (tasks ?? []);
-
   const filteredItems = useMemo(() => {
+    const allItems: SelectableItem[] =
+      filterLevel === "class" ? (classes ?? []) :
+      filterLevel === "course" ? (courses ?? []) :
+      (tasks ?? []);
     if (!selectorSearch) return allItems;
-    return allItems.filter((item: any) =>
+    return allItems.filter((item) =>
       (item.name ?? item.title ?? "").toLowerCase().includes(selectorSearch.toLowerCase())
     );
-  }, [allItems, selectorSearch]);
+  }, [filterLevel, classes, courses, tasks, selectorSearch]);
 
-  const getItemLabel = (item: any) => item.name ?? item.title ?? item.id;
+  const getItemLabel = (item: SelectableItem) => item.name ?? item.title ?? item.id;
 
   const handleSelectItem = (id: string) => {
     if (filterLevel === "class") { setSelectedClassId(id); setSelectedTaskId(null); }
@@ -207,7 +208,8 @@ export default function TeacherAnalyticsPage() {
   const handleLevelChange = (level: FilterLevel) => {
     setFilterLevel(level);
     setSelectorSearch("");
-    // Keep class selection when switching to task
+    // Only reset the task pick — class/course selection stays so switching
+    // back to "task" doesn't lose which class it was scoped to.
     if (level !== "task") setSelectedTaskId(null);
   };
 
@@ -275,7 +277,7 @@ export default function TeacherAnalyticsPage() {
               </p>
             ) : (
               <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
-                {filteredItems.map((item: any) => (
+                {filteredItems.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => handleSelectItem(item.id)}
@@ -309,7 +311,6 @@ export default function TeacherAnalyticsPage() {
               <ClassificationTable
                 data={classificationData ?? []}
                 onViewStudent={handleViewStudent}
-                selectedTaskId={selectedTaskId ?? undefined}
               />
             )}
           </div>

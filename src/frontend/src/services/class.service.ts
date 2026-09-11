@@ -1,7 +1,3 @@
-/**
- * class.service.ts
- */
-
 import api from "@/lib/api";
 import { Class } from "@/types/class.types";
 

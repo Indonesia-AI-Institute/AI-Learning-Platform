@@ -1,15 +1,12 @@
 "use client";
 
-/**
- * Teacher creates a new task for a course
- */
-
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { taskService } from "@/services/task.service";
+import { getErrorMessage } from "@/lib/errors";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,11 +47,8 @@ export default function CreateTaskContent() {
       router.back();
     },
 
-    onError: (err: any) => {
-      setError(
-        err?.response?.data?.detail ??
-          "Failed to create task."
-      );
+    onError: (err: unknown) => {
+      setError(getErrorMessage(err, "Failed to create task."));
     },
   });
 

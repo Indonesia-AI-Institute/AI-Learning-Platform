@@ -16,10 +16,6 @@ import {
 import { cn } from "@/lib/utils";
 import { ChatSession } from "@/types/chat.types";
 
-// ─────────────────────────────────────────────────────────────
-// SESSION CARD
-// ─────────────────────────────────────────────────────────────
-
 function SessionCard({
   session,
   onOpen,
@@ -89,10 +85,6 @@ function SessionCard({
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// MAIN PAGE
-// ─────────────────────────────────────────────────────────────
-
 export default function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const router = useRouter();
@@ -139,7 +131,7 @@ export default function TaskDetailPage() {
     onError: () => setDeletingId(null),
   });
 
-  // Task inactive = sudah deactivated (manual atau otomatis karena due date)
+  // A task can go inactive either manually or automatically past its due date
   const isTaskActive = task?.is_active ?? true;
 
   return (
@@ -163,11 +155,9 @@ export default function TaskDetailPage() {
           </div>
         ) : (
           <>
-            {/* Task info */}
             <div className="space-y-3">
               <div className="flex items-start gap-3 flex-wrap">
                 <h2 className="text-2xl font-semibold">{task?.title}</h2>
-                {/* Status badge — hanya tampil jika inactive */}
                 {!isTaskActive && (
                   <span className="mt-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">
                     Closed
@@ -208,11 +198,9 @@ export default function TaskDetailPage() {
               )}
             </div>
 
-            {/* STUDENT VIEW */}
             {!isTeacher && (
               <div className="space-y-4">
 
-                {/* Task closed banner */}
                 {!isTaskActive ? (
                   <div className="flex items-start gap-3 border border-gray-200 bg-gray-50 rounded-lg p-4">
                     <Lock className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
@@ -226,7 +214,6 @@ export default function TaskDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  /* New session box — hanya tampil jika task aktif */
                   <div className="border rounded-lg p-4 space-y-3">
                     {showTitleInput ? (
                       <>
@@ -287,7 +274,6 @@ export default function TaskDetailPage() {
                   </div>
                 )}
 
-                {/* Sessions list — selalu tampil (active & inactive task) */}
                 {loadingSessions ? (
                   <div className="flex items-center gap-2 py-4">
                     <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -319,7 +305,6 @@ export default function TaskDetailPage() {
               </div>
             )}
 
-            {/* TEACHER VIEW */}
             {isTeacher && (
               <Button
                 variant="outline"

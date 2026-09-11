@@ -1,8 +1,3 @@
-/**
- * task.service.ts
- * ===============
- */
-
 import api from "@/lib/api";
 import { Task } from "@/types/task.types";
 

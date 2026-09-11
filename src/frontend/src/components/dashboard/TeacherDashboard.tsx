@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * TeacherDashboard.tsx
- * ====================
- * Dashboard content for teacher role.
- */
-
 import { useQuery } from "@tanstack/react-query";
 import { Users, BookOpen, Link } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";

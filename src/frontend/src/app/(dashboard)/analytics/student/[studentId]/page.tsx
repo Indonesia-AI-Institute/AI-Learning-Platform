@@ -4,17 +4,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { analyticsService } from "@/services/analytics.service";
+import { analyticsService, PromptClassificationRow } from "@/services/analytics.service";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChatMessage } from "@/types/chat.types";
-
-// =========================================================
-// VIEW MODE TOGGLE
-// =========================================================
+import { ChatMessage, ChatSession } from "@/types/chat.types";
 
 type ViewMode = "conversation" | "prompts";
 
@@ -52,10 +48,6 @@ function ViewToggle({
     </div>
   );
 }
-
-// =========================================================
-// CONVERSATION VIEW — full chat with AI responses
-// =========================================================
 
 function ConversationView({ messages }: { messages: ChatMessage[] }) {
   if (!messages.length) return (
@@ -101,10 +93,6 @@ function ConversationView({ messages }: { messages: ChatMessage[] }) {
   );
 }
 
-// =========================================================
-// PROMPTS VIEW — student messages only, numbered list
-// =========================================================
-
 function PromptsView({ messages }: { messages: ChatMessage[] }) {
   const studentMessages = messages.filter((m) => m.role === "user");
 
@@ -131,10 +119,6 @@ function PromptsView({ messages }: { messages: ChatMessage[] }) {
   );
 }
 
-// =========================================================
-// SESSION HISTORY LOADER
-// =========================================================
-
 function SessionHistoryViewer({
   sessionId,
   viewMode,
@@ -160,17 +144,12 @@ function SessionHistoryViewer({
     : <PromptsView messages={history.messages} />;
 }
 
-// =========================================================
-// SESSION CARD
-// =========================================================
-
-function SessionCard({ session }: { session: any }) {
+function SessionCard({ session }: { session: ChatSession }) {
   const [expanded, setExpanded] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("conversation");
 
   return (
     <div className="border rounded-lg overflow-hidden">
-      {/* Session header */}
       <button
         className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
         onClick={() => setExpanded(!expanded)}
@@ -202,10 +181,8 @@ function SessionCard({ session }: { session: any }) {
         }
       </button>
 
-      {/* Expanded content */}
       {expanded && (
         <div className="border-t">
-          {/* View mode toggle */}
           <div className="flex items-center justify-between px-4 py-2 bg-muted/20 border-b">
             <p className="text-xs text-muted-foreground">
               {viewMode === "conversation"
@@ -215,7 +192,6 @@ function SessionCard({ session }: { session: any }) {
             <ViewToggle mode={viewMode} onChange={setViewMode} />
           </div>
 
-          {/* Content */}
           <SessionHistoryViewer sessionId={session.id} viewMode={viewMode} />
         </div>
       )}
@@ -223,11 +199,9 @@ function SessionCard({ session }: { session: any }) {
   );
 }
 
-// =========================================================
-// MAIN PAGE
-// =========================================================
+type PromptColKey = Exclude<keyof PromptClassificationRow, "student_id" | "total_prompts">;
 
-const PROMPT_COLS = [
+const PROMPT_COLS: { key: PromptColKey; label: string }[] = [
   { key: "direct_answer_pct", label: "Direct Answer" },
   { key: "explanation_pct", label: "Explanation" },
   { key: "step_by_step_pct", label: "Step-by-Step" },
@@ -265,8 +239,6 @@ export default function StudentAnalyticsDetailPage() {
   return (
     <DashboardLayout title="Student Activity">
       <div className="space-y-6 max-w-4xl">
-
-        {/* Header */}
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -284,7 +256,6 @@ export default function StudentAnalyticsDetailPage() {
           <p className="text-xs text-muted-foreground font-mono mt-1">ID: {studentId}</p>
         </div>
 
-        {/* Classification summary */}
         {classifications && classifications.length > 0 && (
           <div className="space-y-2">
             <h3 className="font-medium text-sm">Prompt Type Summary</h3>
@@ -306,7 +277,7 @@ export default function StudentAnalyticsDetailPage() {
                       <td className="px-3 py-2.5 text-right font-medium">{row.total_prompts}</td>
                       {PROMPT_COLS.map((col) => (
                         <td key={col.key} className="px-3 py-2.5 text-right">
-                          {((row as any)[col.key] ?? 0).toFixed(1)}%
+                          {(row[col.key] ?? 0).toFixed(1)}%
                         </td>
                       ))}
                     </tr>
@@ -317,7 +288,6 @@ export default function StudentAnalyticsDetailPage() {
           </div>
         )}
 
-        {/* Sessions */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-medium">Sessions ({filteredSessions.length})</h3>

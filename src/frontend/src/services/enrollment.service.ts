@@ -1,7 +1,3 @@
-/**
- * enrollment.service.ts
- */
-
 import api from "@/lib/api";
 import { Enrollment, EnrollRequest } from "@/types/enrollment.types";
 

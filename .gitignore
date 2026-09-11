@@ -95,7 +95,6 @@ ipython_config.py
 
 # Dependencies
 node_modules/
-.pnpm-store/
 
 # UV
 #   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.

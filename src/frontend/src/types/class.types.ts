@@ -1,7 +1,3 @@
-/**
- * class.types.ts
- */
-
 export interface CourseInfo {
   id: string;
   title: string;

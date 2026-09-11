@@ -1,39 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { classService } from "@/services/class.service";
+import { getErrorMessage } from "@/lib/errors";
+import { Class } from "@/types/class.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 
-export default function EditClassPage() {
+// Split from the page component so its form fields can initialize their
+// state directly from the already-loaded `cls` prop (a lazy useState
+// initializer) instead of syncing it in via a useEffect — the effect
+// version triggers an extra render every time the query resolves.
+function EditClassForm({ cls }: { cls: Class }) {
   const { classId } = useParams<{ classId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [isActive, setIsActive] = useState(true);
+  const [name, setName] = useState(cls.name ?? "");
+  const [description, setDescription] = useState(cls.description ?? "");
+  const [isActive, setIsActive] = useState(cls.is_active ?? true);
   const [nameError, setNameError] = useState("");
   const [formError, setFormError] = useState("");
-
-  const { data: cls, isLoading } = useQuery({
-    queryKey: ["class", classId],
-    queryFn: () => classService.getClassDetail(classId),
-  });
-
-  // Pre-fill form
-  useEffect(() => {
-    if (!cls) return;
-    setName(cls.name ?? "");
-    setDescription(cls.description ?? "");
-    setIsActive(cls.is_active ?? true);
-  }, [cls]);
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -48,14 +41,8 @@ export default function EditClassPage() {
       queryClient.invalidateQueries({ queryKey: ["classesByCourse"] });
       router.push(`/classes/${classId}`);
     },
-    onError: (err: any) => {
-      const detail = err?.response?.data?.detail;
-      const msg = typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-        ? detail.map((d: any) => d.msg).join(", ")
-        : "Failed to update class. Please try again.";
-      setFormError(msg);
+    onError: (err: unknown) => {
+      setFormError(getErrorMessage(err, "Failed to update class. Please try again."));
     },
   });
 
@@ -71,25 +58,6 @@ export default function EditClassPage() {
 
     updateMutation.mutate();
   };
-
-  if (isLoading) {
-    return (
-      <DashboardLayout title="Edit Class">
-        <div className="flex items-center gap-2 py-8">
-          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground text-sm">Loading...</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (!cls) {
-    return (
-      <DashboardLayout title="Edit Class">
-        <p className="text-muted-foreground text-sm py-8">Class not found.</p>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout title={`Edit: ${cls.name}`}>
@@ -114,7 +82,6 @@ export default function EditClassPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5 border rounded-lg p-6">
 
-          {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="name">
               Class Name <span className="text-destructive">*</span>
@@ -137,7 +104,6 @@ export default function EditClassPage() {
             )}
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <textarea
@@ -150,7 +116,6 @@ export default function EditClassPage() {
             />
           </div>
 
-          {/* Active / Inactive toggle */}
           <div className="flex items-center justify-between border rounded-lg p-4">
             <div className="space-y-0.5">
               <p className="text-sm font-medium">Class Status</p>
@@ -166,7 +131,6 @@ export default function EditClassPage() {
             />
           </div>
 
-          {/* Form-level error */}
           {formError && (
             <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
               <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
@@ -174,7 +138,6 @@ export default function EditClassPage() {
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <Button type="submit" disabled={updateMutation.isPending}>
               {updateMutation.isPending ? (
@@ -200,4 +163,34 @@ export default function EditClassPage() {
       </div>
     </DashboardLayout>
   );
+}
+
+export default function EditClassPage() {
+  const { classId } = useParams<{ classId: string }>();
+
+  const { data: cls, isLoading } = useQuery({
+    queryKey: ["class", classId],
+    queryFn: () => classService.getClassDetail(classId),
+  });
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Edit Class">
+        <div className="flex items-center gap-2 py-8">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!cls) {
+    return (
+      <DashboardLayout title="Edit Class">
+        <p className="text-muted-foreground text-sm py-8">Class not found.</p>
+      </DashboardLayout>
+    );
+  }
+
+  return <EditClassForm key={cls.id} cls={cls} />;
 }

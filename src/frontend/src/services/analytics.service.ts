@@ -1,7 +1,3 @@
-/**
- * analytics.service.ts
- */
-
 import api from "@/lib/api";
 import { StudentAnalytics } from "@/types/analytics.types";
 import { ChatSession, ChatHistoryResponse } from "@/types/chat.types";
@@ -21,7 +17,6 @@ export interface PromptClassificationRow {
 }
 
 export const analyticsService = {
-  // ---- Student ----
   getMyAnalytics: async (): Promise<StudentAnalytics> => {
     const response = await api.get<StudentAnalytics>("/analytics/me");
     return response.data;
@@ -32,7 +27,6 @@ export const analyticsService = {
     return response.data.data;
   },
 
-  // ---- Teacher: classification ----
   getClassClassifications: async (classId: string): Promise<PromptClassificationRow[]> => {
     const response = await api.get<{ students: PromptClassificationRow[] }>(`/analytics/class/${classId}/classifications`);
     return response.data.students;
@@ -53,7 +47,6 @@ export const analyticsService = {
     return response.data.data;
   },
 
-  // ---- Teacher: chat history ----
   getStudentSessions: async (studentId: string, taskId?: string): Promise<ChatSession[]> => {
     const params = taskId ? `?task_id=${taskId}` : "";
     const response = await api.get<ChatSession[]>(`/chat/teacher/student/${studentId}/sessions${params}`);

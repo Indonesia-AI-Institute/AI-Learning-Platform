@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
+import { getErrorMessage } from "@/lib/errors";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -63,27 +64,27 @@ export function LoginForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <div className="relative">
+                  <div className="relative">
+                    <FormControl>
                       <Input
                         type={showPassword ? "text" : "password"}
                         placeholder="••••••••"
                         className="pr-10"
                         {...field}
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        tabIndex={-1}
-                      >
-                        {showPassword
-                          ? <EyeOff className="w-4 h-4" />
-                          : <Eye className="w-4 h-4" />
-                        }
-                      </button>
-                    </div>
-                  </FormControl>
+                    </FormControl>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword
+                        ? <EyeOff className="w-4 h-4" />
+                        : <Eye className="w-4 h-4" />
+                      }
+                    </button>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -91,7 +92,7 @@ export function LoginForm() {
 
             {loginError && (
               <p className="text-sm text-destructive">
-                {(loginError as any)?.response?.data?.detail ?? "Login failed. Please try again."}
+                {getErrorMessage(loginError, "Login failed. Please try again.")}
               </p>
             )}
 

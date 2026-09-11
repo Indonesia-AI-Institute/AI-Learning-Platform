@@ -1,7 +1,3 @@
-/**
- * course.service.ts
- */
-
 import api from "@/lib/api";
 import { Course } from "@/types/course.types";
 

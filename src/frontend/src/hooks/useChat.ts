@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatMessage } from "@/types/chat.types";
+import { getApiUrl } from "@/lib/env";
 
 interface UseChatOptions {
   sessionId: string;
@@ -22,7 +23,8 @@ export function useChat({
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Ref selalu simpan nilai terbaru — fix stale closure di cleanup effect
+  // Refs (not state) so the unmount cleanup below always reads the latest
+  // value instead of the one captured when the effect first ran.
   const isActiveRef = useRef(isSessionActive);
   const sessionIdRef = useRef(sessionId);
 
@@ -34,28 +36,23 @@ export function useChat({
     sessionIdRef.current = sessionId;
   }, [sessionId]);
 
-  // Auto-end saat component unmount (student navigasi keluar dari chat room)
-  // Dependency array [] intentional — cleanup hanya perlu mount/unmount lifecycle
-  // Pakai ref bukan state untuk menghindari stale closure
+  // Ends the session when the student navigates away from the chat room.
   useEffect(() => {
     return () => {
       if (!sessionIdRef.current) return;
-      if (!isActiveRef.current) return; // jangan end session yang sudah ended
+      if (!isActiveRef.current) return;
 
       fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${sessionIdRef.current}/auto-end`,
+        `${getApiUrl()}/chat/sessions/${sessionIdRef.current}/auto-end`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          keepalive: true, // pastikan request selesai meski page unload
+          keepalive: true, // lets the request finish even after page unload
         }
-      ).catch(() => {
-        // Ignore errors — auto-end adalah best-effort
-      });
+      ).catch(() => {});
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // mount/unmount only
+  }, []);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -77,7 +74,7 @@ export function useChat({
 
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${sessionId}/stream`,
+          `${getApiUrl()}/chat/sessions/${sessionId}/stream`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -133,8 +130,8 @@ export function useChat({
             setStreamingContent(fullContent);
           }
         }
-      } catch (err: any) {
-        if (err.name === "AbortError") return;
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
         setError("Failed to send message. Please try again.");
         setIsStreaming(false);
         setStreamingContent("");

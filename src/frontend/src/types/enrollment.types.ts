@@ -1,8 +1,3 @@
-/**
- * enrollment.types.ts
- * ===================
- */
-
 export interface Enrollment {
   id: string;
   student_id: string;

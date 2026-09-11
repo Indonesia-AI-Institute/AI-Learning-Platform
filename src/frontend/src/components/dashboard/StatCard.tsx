@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * StatCard.tsx
- * ============
- * Reusable stat card for dashboard metrics.
- */
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
 

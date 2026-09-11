@@ -1,39 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { courseService } from "@/services/course.service";
+import { getErrorMessage } from "@/lib/errors";
+import { Course } from "@/types/course.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 
-export default function EditCoursePage() {
+// Split from the page component so its form fields can initialize their
+// state directly from the already-loaded `course` prop (a lazy useState
+// initializer) instead of syncing it in via a useEffect — the effect
+// version triggers an extra render every time the query resolves.
+function EditCourseForm({ course }: { course: Course }) {
   const { courseId } = useParams<{ courseId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [isActive, setIsActive] = useState(true);
+  const [title, setTitle] = useState(course.title ?? "");
+  const [description, setDescription] = useState(course.description ?? "");
+  const [isActive, setIsActive] = useState(course.is_active ?? true);
   const [titleError, setTitleError] = useState("");
   const [formError, setFormError] = useState("");
-
-  const { data: course, isLoading } = useQuery({
-    queryKey: ["course", courseId],
-    queryFn: () => courseService.getCourseDetail(courseId),
-  });
-
-  // Pre-fill form saat data tersedia
-  useEffect(() => {
-    if (!course) return;
-    setTitle(course.title ?? "");
-    setDescription(course.description ?? "");
-    setIsActive(course.is_active ?? true);
-  }, [course]);
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -47,14 +40,8 @@ export default function EditCoursePage() {
       queryClient.invalidateQueries({ queryKey: ["myCourses"] });
       router.push(`/courses/${courseId}`);
     },
-    onError: (err: any) => {
-      const detail = err?.response?.data?.detail;
-      const msg = typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-        ? detail.map((d: any) => d.msg).join(", ")
-        : "Failed to update course. Please try again.";
-      setFormError(msg);
+    onError: (err: unknown) => {
+      setFormError(getErrorMessage(err, "Failed to update course. Please try again."));
     },
   });
 
@@ -63,7 +50,6 @@ export default function EditCoursePage() {
     setFormError("");
     setTitleError("");
 
-    // Validasi title tidak boleh kosong
     if (!title.trim()) {
       setTitleError("Course title is required and cannot be empty.");
       return;
@@ -71,25 +57,6 @@ export default function EditCoursePage() {
 
     updateMutation.mutate();
   };
-
-  if (isLoading) {
-    return (
-      <DashboardLayout title="Edit Course">
-        <div className="flex items-center gap-2 py-8">
-          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground text-sm">Loading...</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (!course) {
-    return (
-      <DashboardLayout title="Edit Course">
-        <p className="text-muted-foreground text-sm py-8">Course not found.</p>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout title={`Edit: ${course.title}`}>
@@ -114,7 +81,6 @@ export default function EditCoursePage() {
 
         <form onSubmit={handleSubmit} className="space-y-5 border rounded-lg p-6">
 
-          {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">
               Course Title <span className="text-destructive">*</span>
@@ -124,7 +90,6 @@ export default function EditCoursePage() {
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
-                // Clear error saat user mulai mengetik
                 if (e.target.value.trim()) setTitleError("");
               }}
               placeholder="Enter course title"
@@ -138,7 +103,6 @@ export default function EditCoursePage() {
             )}
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <textarea
@@ -151,7 +115,6 @@ export default function EditCoursePage() {
             />
           </div>
 
-          {/* Active / Inactive toggle */}
           <div className="flex items-center justify-between border rounded-lg p-4">
             <div className="space-y-0.5">
               <p className="text-sm font-medium">Course Status</p>
@@ -167,7 +130,6 @@ export default function EditCoursePage() {
             />
           </div>
 
-          {/* Form-level error */}
           {formError && (
             <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
               <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
@@ -175,7 +137,6 @@ export default function EditCoursePage() {
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <Button type="submit" disabled={updateMutation.isPending}>
               {updateMutation.isPending ? (
@@ -201,4 +162,34 @@ export default function EditCoursePage() {
       </div>
     </DashboardLayout>
   );
+}
+
+export default function EditCoursePage() {
+  const { courseId } = useParams<{ courseId: string }>();
+
+  const { data: course, isLoading } = useQuery({
+    queryKey: ["course", courseId],
+    queryFn: () => courseService.getCourseDetail(courseId),
+  });
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Edit Course">
+        <div className="flex items-center gap-2 py-8">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!course) {
+    return (
+      <DashboardLayout title="Edit Course">
+        <p className="text-muted-foreground text-sm py-8">Course not found.</p>
+      </DashboardLayout>
+    );
+  }
+
+  return <EditCourseForm key={course.id} course={course} />;
 }

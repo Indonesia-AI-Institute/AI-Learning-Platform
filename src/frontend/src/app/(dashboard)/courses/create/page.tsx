@@ -1,14 +1,11 @@
 "use client";
 
-/**
- * app/(dashboard)/courses/create/page.tsx
- */
-
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { courseService } from "@/services/course.service";
+import { getErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,8 +24,8 @@ export default function CreateCoursePage() {
       queryClient.invalidateQueries({ queryKey: ["myCourses"] });
       router.push("/courses");
     },
-    onError: (err: any) => {
-      setError(err?.response?.data?.detail ?? "Failed to create course.");
+    onError: (err: unknown) => {
+      setError(getErrorMessage(err, "Failed to create course."));
     },
   });
 

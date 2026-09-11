@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * RegisterForm.tsx
- * ================
- * Register form component using shadcn + react-hook-form + zod.
- */
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -37,12 +31,8 @@ import {
 } from "@/components/ui/select";
 
 import { useAuth } from "@/hooks/useAuth";
+import { getErrorMessage } from "@/lib/errors";
 
-// =========================================================
-// SCHEMA
-// =========================================================
-
-// Zod enum for the role field.
 const RoleEnum = z.enum(["student", "teacher"]);
 
 const registerSchema = z.object({
@@ -53,10 +43,6 @@ const registerSchema = z.object({
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
-
-// =========================================================
-// COMPONENT
-// =========================================================
 
 export function RegisterForm() {
   const { register, isRegisterLoading, registerError } = useAuth();
@@ -164,8 +150,7 @@ export function RegisterForm() {
 
             {registerError && (
               <p className="text-sm text-destructive">
-                {(registerError as any)?.response?.data?.detail ??
-                  "Registration failed. Please try again."}
+                {getErrorMessage(registerError, "Registration failed. Please try again.")}
               </p>
             )}
 

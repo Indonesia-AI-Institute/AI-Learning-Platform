@@ -10,7 +10,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
-
 from backend.agents.services.socratic_agent import SocraticTutorAgent
 
 CONFIG_PATH = str(

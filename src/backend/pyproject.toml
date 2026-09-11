@@ -44,12 +44,65 @@ dependencies = [
 dev = [
     "pytest==8.3.3",
     "pytest-asyncio==0.24.0",
-    "python-semantic-release>=9.0.0"
+    "python-semantic-release>=9.0.0",
+    "ruff==0.9.6"
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# Deliberately narrow to start: real bugs and import hygiene, not style.
+# E/F are pycodestyle errors + pyflakes (unused imports/vars, undefined
+# names, etc.); I is import sorting; B is flake8-bugbear (common
+# correctness footguns — mutable default args, misused except handling).
+# Widen this list later rather than starting broad and drowning the
+# first run in pre-existing style violations unrelated to correctness.
+select = ["E", "F", "I", "B"]
+ignore = [
+    "E501", # line-length is a formatter concern (ruff format), not a lint error
+    # A real, sizeable backlog (74 hits on first run) — every FastAPI route/
+    # service re-raising inside an `except` block without `from e`/`from
+    # None` loses exception chaining. Genuine finding, not a false
+    # positive like B008 below, but too large a behavioral sweep to fix
+    # blindly in one pass. Re-enable and fix deliberately, file by file.
+    "B904",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Star imports / unused-in-this-file re-exports are the norm in these.
+"__init__.py" = ["F401"]
+# `from backend.models import *` is deliberate here — Alembic's
+# autogenerate needs every model imported so Base.metadata is fully
+# populated to diff against; see the new-model skill for why this and
+# models/__init__.py both matter for a new table to be detected at all.
+"alembic/env.py" = ["F403"]
+
+[tool.ruff.lint.flake8-bugbear]
+# B008 (no function calls in default args) is a real bug for a mutable
+# default like `[]`, but FastAPI's entire dependency-injection system is
+# built on `Depends(...)`/`Query(...)`/etc. as default-argument values —
+# that's the framework's own idiomatic pattern, not the bug B008 exists
+# to catch. Without this, B008 fires on essentially every route.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.File",
+    "fastapi.Form",
+    # This project's own callable-class dependency (role-only check, not
+    # ownership — see backend CLAUDE.md Critical Rule 2), constructed
+    # inline the same idiomatic way: Depends(RoleGuard([UserRole.TEACHER])).
+    "backend.utils.role_guard.RoleGuard",
+]
 
 
 [build-system]

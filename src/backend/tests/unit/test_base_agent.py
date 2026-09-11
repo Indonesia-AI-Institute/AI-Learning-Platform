@@ -7,7 +7,6 @@ the shared implementation directly so there's one place that can't drift.
 """
 
 import pytest
-
 from backend.agents.services.base_agent import BaseAgent
 
 

@@ -7,7 +7,6 @@ graphs and asserts teacher A gets nothing back for teacher B's data.
 """
 
 import pytest
-
 from backend.auth.security import create_access_token, hash_password
 from backend.models.chat_history import ChatHistory, MessageRole
 from backend.models.chat_session import ChatSession

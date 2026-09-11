@@ -1,17 +1,17 @@
-from sqlalchemy import (
-    Column,
-    Text,
-    ForeignKey,
-    Integer,
-    Enum,
-    String,
-    JSON,
-)
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 import enum
 
 from backend.models.base import BaseModel
+from sqlalchemy import (
+    JSON,
+    Column,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 
 class MessageRole(str, enum.Enum):

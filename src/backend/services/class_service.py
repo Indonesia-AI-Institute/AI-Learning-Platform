@@ -1,14 +1,11 @@
 from typing import List
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.models.user import User, UserRole
 from backend.models.class_model import Class
-from backend.models.course import Course
-
+from backend.models.user import User, UserRole
 from backend.repositories.class_repository import ClassRepository
 from backend.repositories.course_repository import CourseRepository
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ClassService:

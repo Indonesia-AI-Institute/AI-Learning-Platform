@@ -10,8 +10,8 @@ Pattern:
 Drop file provider baru → langsung aktif
 """
 
-import pkgutil
 import importlib
+import pkgutil
 from pathlib import Path
 
 

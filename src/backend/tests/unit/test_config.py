@@ -1,7 +1,6 @@
 import pytest
-from pydantic import ValidationError
-
 from backend.core.config import Settings
+from pydantic import ValidationError
 
 VALID_KWARGS = dict(
     SECRET_KEY="a-random-secret-key-that-is-at-least-32-chars",

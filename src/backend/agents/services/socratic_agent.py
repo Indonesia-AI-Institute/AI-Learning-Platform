@@ -2,8 +2,9 @@
 SocraticTutorAgent implements true multi-turn guided learning.
 """
 
-from typing import Any, Dict, List, AsyncGenerator
 import re
+from typing import Any, AsyncGenerator, Dict, List
+
 from .base_agent import BaseAgent
 
 

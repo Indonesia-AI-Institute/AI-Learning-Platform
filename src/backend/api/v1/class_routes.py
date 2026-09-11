@@ -1,14 +1,13 @@
+from typing import List
 from uuid import UUID
+
+from backend.api.deps import get_current_user, get_db, require_teacher
+from backend.schemas.classes.class_create import ClassCreate
+from backend.schemas.classes.class_response import ClassResponse
+from backend.schemas.classes.class_update import ClassUpdate
+from backend.services.class_service import ClassService
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
-
-from backend.api.deps import get_db, require_teacher, get_current_user
-from backend.services.class_service import ClassService
-
-from backend.schemas.classes.class_create import ClassCreate
-from backend.schemas.classes.class_update import ClassUpdate
-from backend.schemas.classes.class_response import ClassResponse
 
 router = APIRouter(prefix="/classes", tags=["Classes"])
 

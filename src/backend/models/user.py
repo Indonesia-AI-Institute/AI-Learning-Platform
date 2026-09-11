@@ -1,8 +1,8 @@
-from sqlalchemy import Column, String, Enum
-from sqlalchemy.orm import relationship
 import enum
 
 from backend.models.base import BaseModel, SoftDeleteMixin
+from sqlalchemy import Column, Enum, String
+from sqlalchemy.orm import relationship
 
 
 class UserRole(str, enum.Enum):

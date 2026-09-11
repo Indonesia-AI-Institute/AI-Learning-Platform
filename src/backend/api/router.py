@@ -1,15 +1,14 @@
 """Central API router aggregator: combines all v1 routers and applies prefix versioning."""
 
-from fastapi import APIRouter
-
-from backend.api.v1.chat_routes import router as chat_router
-from backend.api.v1.health_routes import router as health_router
-from backend.api.v1.auth_routes import router as auth_router
 from backend.api.v1.analytics_routes import router as analytics_router
-from backend.api.v1.course_routes import router as course_router
+from backend.api.v1.auth_routes import router as auth_router
+from backend.api.v1.chat_routes import router as chat_router
 from backend.api.v1.class_routes import router as class_router
+from backend.api.v1.course_routes import router as course_router
 from backend.api.v1.enrollment_routes import router as enrollment_router
+from backend.api.v1.health_routes import router as health_router
 from backend.api.v1.task_routes import router as task_router
+from fastapi import APIRouter
 
 api_router = APIRouter()
 

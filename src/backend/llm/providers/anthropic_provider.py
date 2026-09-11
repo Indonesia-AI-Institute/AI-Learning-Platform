@@ -9,7 +9,6 @@ Install: pip install anthropic
 """
 
 from typing import Any, Dict, List
-import time
 
 from backend.llm.base.llm_providers import BaseLLMProvider, llm_provider_registry
 from backend.observability.logging.logger import get_logger
@@ -52,8 +51,6 @@ class AnthropicProvider(BaseLLMProvider):
         messages: List[Dict[str, str]],
         **kwargs: Any,
     ) -> Dict[str, Any]:
-
-        start_time = time.time()
 
         try:
             # Anthropic pisahkan system message dari messages
@@ -101,7 +98,6 @@ class AnthropicProvider(BaseLLMProvider):
         messages: List[Dict[str, str]],
         **kwargs: Any,
     ):
-        start_time = time.time()
         full_content = ""
         token_count = 0
 

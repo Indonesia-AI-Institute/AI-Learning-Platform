@@ -5,11 +5,10 @@ Populated when session is ended via finalize_session_analytics().
 
 import uuid
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Float, String, func
+from backend.db.base import Base
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-
-from backend.db.base import Base
 
 
 class SessionAnalytics(Base):

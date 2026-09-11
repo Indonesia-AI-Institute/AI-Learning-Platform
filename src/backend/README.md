@@ -144,10 +144,12 @@ in non-production environments.
 This directory has its own `.claude/`:
 
 - **`CLAUDE.md`** — architecture, hard conventions, and known gaps.
-- **`.claude/skills/`** — ten skills, each invocable as `/<name>` or
+- **`.claude/skills/`** — thirteen skills, each invocable as `/<name>` or
   picked up automatically when relevant:
   - **`dev-server`** — start the backend locally the correct way (env,
     migrations, `PYTHONPATH`, reload).
+  - **`check`** — comprehensive check: ruff lint + format check, then the
+    pytest suite, with one consolidated report.
   - **`test`** — run the pytest suite, handling the Postgres test
     container lifecycle.
   - **`docker-smoke-test`** — build the Docker image and exercise it end
@@ -155,12 +157,17 @@ This directory has its own `.claude/`:
     container.
   - **`new-endpoint`** — scaffold a new route + service + schema
     following this codebase's conventions.
+  - **`new-model`** — scaffold a brand-new table (model + repository +
+    registering it for Alembic), the step before `new-endpoint`.
   - **`new-agent`** — scaffold a new tutoring agent (prompt config,
     `BaseAgent` subclass, registry entry, tests) — with the
     system-prompt-injection rule (Critical Rule #3) baked into the steps.
   - **`new-guardrail`** — scaffold a new content-safety filter (filter
     class, config toggle, `LLMService` wiring, tests) — with the
     "toggles must actually be read" rule (Critical Rule #9) baked in.
+  - **`new-config-var`** — add a new `Settings`/env var correctly,
+    including confirming it's actually read where intended — the exact
+    class of bug behind Critical Rule #9, which has shipped twice.
   - **`enrich-unit-tests`** — audit and deepen `tests/unit/` coverage:
     untested pure logic, boundary/negative cases, duplicated-logic risk.
   - **`enrich-integration-tests`** — audit and deepen

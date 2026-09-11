@@ -1,11 +1,9 @@
-from typing import Type, TypeVar, Generic, Optional, List, Any, Dict
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 from uuid import UUID
 
+from backend.models.base import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.models.base import BaseModel
-
 
 ModelType = TypeVar("ModelType", bound=BaseModel)
 

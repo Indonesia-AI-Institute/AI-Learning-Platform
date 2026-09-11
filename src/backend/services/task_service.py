@@ -1,17 +1,15 @@
 from datetime import datetime, timezone
-from uuid import UUID
 from typing import List, Optional
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
 from backend.models.task import Task
 from backend.models.user import User, UserRole
-
-from backend.repositories.task_repository import TaskRepository
-from backend.repositories.course_repository import CourseRepository
 from backend.repositories.class_repository import ClassRepository
+from backend.repositories.course_repository import CourseRepository
 from backend.repositories.enrollment_repository import EnrollmentRepository
-from backend.schemas.task.task_response import TaskResponse, ClassInfo
+from backend.repositories.task_repository import TaskRepository
+from backend.schemas.task.task_response import ClassInfo, TaskResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TaskService:

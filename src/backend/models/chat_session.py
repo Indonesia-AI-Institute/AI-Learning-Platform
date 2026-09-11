@@ -1,8 +1,7 @@
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean
+from backend.models.base import BaseModel
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-
-from backend.models.base import BaseModel
 
 
 class ChatSession(BaseModel):

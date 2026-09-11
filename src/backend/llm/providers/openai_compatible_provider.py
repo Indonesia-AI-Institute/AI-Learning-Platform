@@ -7,12 +7,10 @@ Supports OpenRouter provider routing via extra_body.
 """
 
 from typing import Any, Dict, List, Optional
-import time
-
-from openai import AsyncOpenAI
 
 from backend.llm.base.llm_providers import BaseLLMProvider
 from backend.observability.logging.logger import get_logger
+from openai import AsyncOpenAI
 
 logger = get_logger(__name__)
 
@@ -86,8 +84,6 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         **kwargs: Any,
     ) -> Dict[str, Any]:
 
-        start_time = time.time()
-
         try:
             create_kwargs: Dict[str, Any] = {
                 "model": self.model_name,
@@ -130,7 +126,6 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         messages: List[Dict[str, str]],
         **kwargs: Any,
     ):
-        start_time = time.time()
         full_content = ""
         token_count = 0
         finish_reason = None

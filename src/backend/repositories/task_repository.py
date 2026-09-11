@@ -1,11 +1,10 @@
-from uuid import UUID
 from typing import List
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
 from backend.models.task import Task
 from backend.repositories.base_repository import BaseRepository
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TaskRepository(BaseRepository[Task]):

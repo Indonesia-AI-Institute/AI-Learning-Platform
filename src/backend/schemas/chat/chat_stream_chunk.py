@@ -16,9 +16,9 @@ Future Ready:
 - Latency metrics
 """
 
-from typing import Optional, Literal
-from pydantic import BaseModel, Field, model_validator
+from typing import Literal, Optional
 
+from pydantic import BaseModel, Field, model_validator
 
 StreamEventType = Literal[
     "token",

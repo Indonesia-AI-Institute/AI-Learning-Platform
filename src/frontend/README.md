@@ -82,9 +82,9 @@ values.
 | `NEXT_PUBLIC_API_URL` | Yes | Backend API base URL, resolved at container **runtime** — see `src/lib/env.ts` and Critical Rule 1 in `CLAUDE.md` |
 | `PORT` | No (default `3000`) | Port the server listens on |
 
-The root `.env` (from `.env.example`) is a separate, optional file for
-`docker compose`'s own port-mapping/orchestration config — see the repo
-root README and `CLAUDE.md`'s Critical Rule 9.
+Changing `PORT` here only changes what the app listens to inside its
+container — `docker-compose.yml`'s host-side port mapping is separate
+and needs updating by hand to match (see `CLAUDE.md`'s Critical Rule 9).
 
 ## Testing
 

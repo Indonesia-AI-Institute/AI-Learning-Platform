@@ -4,15 +4,14 @@ Analytics for chat sessions. Analytics are finalized when a session is ended.
 
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-
-from backend.models.session_analytics import SessionAnalytics
-from backend.models.chat_session import ChatSession
 from backend.models.chat_history import ChatHistory, MessageRole
-from backend.models.task import Task
-from backend.models.course import Course
+from backend.models.chat_session import ChatSession
 from backend.models.class_model import Class
+from backend.models.course import Course
+from backend.models.session_analytics import SessionAnalytics
+from backend.models.task import Task
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class SessionAnalyticsService:

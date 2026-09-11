@@ -6,11 +6,10 @@ Ini adalah root cause dari semua bug:
 - Toggle active/inactive tidak berfungsi
 """
 
-from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey
+from backend.models.base import BaseModel
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
-
-from backend.models.base import BaseModel
 
 
 class Task(BaseModel):

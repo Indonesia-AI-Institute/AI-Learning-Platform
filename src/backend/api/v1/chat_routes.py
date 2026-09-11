@@ -1,34 +1,29 @@
-from uuid import UUID
 from typing import List, Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-
-from backend.utils.role_guard import RoleGuard
-from backend.api.deps import get_db, get_chat_service, get_current_user
-from backend.services.prompt_classification_service import PromptClassificationService
+from backend.api.deps import get_chat_service, get_current_user, get_db
 from backend.llm.services.llm_service import LLMService
-from backend.services.session_service import SessionService
+from backend.models.chat_session import ChatSession
+from backend.models.course import Course
+from backend.models.task import Task
+from backend.models.user import User, UserRole
+from backend.schemas.chat.chat_history_response import ChatHistoryResponse, ChatMessageItem
+from backend.schemas.chat.chat_request import ChatRequest
+from backend.schemas.chat.chat_response import ChatResponse
+from backend.schemas.chat.chat_session_create_request import ChatSessionCreateRequest
+from backend.schemas.chat.chat_session_response import ChatSessionResponse
 from backend.services.chat_history_service import ChatHistoryService
 from backend.services.chat_service import ChatService
 from backend.services.conversation_service import ConversationService
-
-from backend.models.user import User, UserRole
-from backend.models.chat_session import ChatSession
-from backend.models.task import Task
-from backend.models.course import Course
-
-from backend.schemas.chat.chat_request import ChatRequest
-from backend.schemas.chat.chat_response import ChatResponse
-from backend.schemas.chat.chat_session_response import ChatSessionResponse
-from backend.schemas.chat.chat_session_create_request import ChatSessionCreateRequest
-from backend.schemas.chat.chat_history_response import ChatHistoryResponse, ChatMessageItem
-
+from backend.services.prompt_classification_service import PromptClassificationService
+from backend.services.session_service import SessionService
+from backend.utils.role_guard import RoleGuard
 from backend.utils.streaming_utils import sse_stream_wrapper
-
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 

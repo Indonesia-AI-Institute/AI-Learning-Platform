@@ -1,10 +1,9 @@
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
-
 from backend.models.user import UserRole
 from backend.utils.role_guard import RoleGuard
+from fastapi import HTTPException
 
 
 def _user(role):

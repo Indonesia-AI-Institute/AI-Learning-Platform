@@ -1,14 +1,13 @@
-from uuid import UUID
 from typing import List
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.api.deps import get_db, require_teacher, get_current_user
-from backend.services.task_service import TaskService
+from backend.api.deps import get_current_user, get_db, require_teacher
 from backend.schemas.task.task_create import TaskCreate
 from backend.schemas.task.task_response import TaskResponse
 from backend.schemas.task.task_update import TaskUpdate
+from backend.services.task_service import TaskService
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 

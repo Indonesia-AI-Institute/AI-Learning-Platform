@@ -1,12 +1,12 @@
-from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from uuid import UUID
 
 from backend.api.deps import get_db, require_student, require_teacher
-from backend.services.enrollment_service import EnrollmentService
 from backend.schemas.enrollment.enrollment_create import EnrollmentCreate
 from backend.schemas.enrollment.enrollment_response import EnrollmentResponse
+from backend.services.enrollment_service import EnrollmentService
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/enrollments", tags=["Enrollments"])
 

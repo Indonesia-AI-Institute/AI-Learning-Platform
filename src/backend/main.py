@@ -5,15 +5,12 @@ configures CORS, and wires up the startup/shutdown lifespan.
 
 from contextlib import asynccontextmanager
 
+from backend.api.router import api_router
+from backend.core.config import settings
+from backend.observability.logging.logger import get_logger
+from backend.observability.logging.logging_config import setup_logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from backend.observability.logging.logging_config import setup_logging
-from backend.observability.logging.logger import get_logger
-
-from backend.core.config import settings
-from backend.api.router import api_router
-
 
 # Logging must be configured before any other module creates a logger.
 setup_logging()

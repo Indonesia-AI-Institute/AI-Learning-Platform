@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from jose import JWTError, jwt as jose_jwt
-
 from backend.auth.security import (
     ALGORITHM,
     create_access_token,
@@ -11,6 +9,8 @@ from backend.auth.security import (
     verify_password,
 )
 from backend.core.config import settings
+from jose import JWTError
+from jose import jwt as jose_jwt
 
 
 def test_hash_password_produces_verifiable_hash():

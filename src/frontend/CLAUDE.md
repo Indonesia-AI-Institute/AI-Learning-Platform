@@ -127,17 +127,18 @@ defense-in-depth on top of React's default escaping, not the only layer,
 so the tradeoff favors keeping static generation. Revisit if Next
 stabilizes nonce support without the dynamic-rendering cost.
 
-**9. The root `.env` (from `.env.example`) is a different file from
-`.env.fe`/`.env.be`, with a different job.** `docker compose`'s own
-`${VAR}` interpolation (used for `API_PORT`/`FRONTEND_PORT` host-mapping
-and reads nothing from `env_file:` entries — those are injected into the
-*container*, a separate mechanism that happens after Compose has already
-resolved the compose file's own placeholders. Setting `PORT` in `.env.fe`
-alone will not change the host-side port mapping; both need to move
-together, which is why the compose files also thread `API_PORT`/
-`FRONTEND_PORT` into each container's own `PORT` env var via an explicit
-`environment:` block, overriding `env_file`'s value so the two can't
-drift out of sync.
+**9. `PORT` in `.env.fe` changes what the app listens to *inside* the
+container, but not `docker-compose.yml`'s host-side port mapping
+(`"3000:3000"`) — the two have to be changed together, by hand.**
+`docker compose`'s own `${VAR}` interpolation (used to fill in a compose
+file's own placeholders) reads nothing from `env_file:` entries — those
+are injected into the *container*, a separate mechanism that only
+happens after Compose has already resolved the compose file itself. A
+root-level `.env` file threading a single var into both sides was tried
+here and then deliberately reverted (this project settled on keeping
+only `.env.be`/`.env.fe`, no third orchestration-only env file) — if
+`PORT` changes, update both `.env.fe` and the `ports:` line in
+`docker-compose.yml` by hand.
 
 ## Directory map
 

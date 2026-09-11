@@ -2,10 +2,9 @@
 Store blacklisted JWT tokens.
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
 from backend.models.token_blacklist import TokenBlacklist
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TokenBlacklistRepository:

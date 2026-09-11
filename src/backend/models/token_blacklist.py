@@ -1,10 +1,9 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime
-from sqlalchemy.dialects.postgresql import UUID
-
 from backend.db.base import Base
+from sqlalchemy import Column, DateTime, String
+from sqlalchemy.dialects.postgresql import UUID
 
 
 class TokenBlacklist(Base):

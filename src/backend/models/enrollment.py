@@ -1,10 +1,10 @@
 import uuid
-from sqlalchemy import Column, ForeignKey, DateTime, UniqueConstraint
+
+from backend.db.base import Base
+from sqlalchemy import Column, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-
-from backend.db.base import Base
 
 
 class Enrollment(Base):

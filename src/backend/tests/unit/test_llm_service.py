@@ -1,5 +1,4 @@
 import pytest
-
 from backend.core.config import settings
 from backend.llm.services.llm_service import LLMService
 

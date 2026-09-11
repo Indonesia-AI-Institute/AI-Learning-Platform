@@ -1,13 +1,12 @@
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import get_db, get_current_user, require_teacher
-from backend.services.course_service import CourseService
-
+from backend.api.deps import get_current_user, get_db, require_teacher
 from backend.schemas.course.course_create import CourseCreate
 from backend.schemas.course.course_response import CourseResponse
 from backend.schemas.course.course_update import CourseUpdate
+from backend.services.course_service import CourseService
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
 

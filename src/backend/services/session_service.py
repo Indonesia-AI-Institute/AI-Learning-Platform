@@ -1,20 +1,17 @@
+from datetime import datetime, timezone
 from typing import List
 from uuid import UUID
-from datetime import datetime, timezone
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.models.user import User, UserRole
 from backend.models.chat_session import ChatSession
 from backend.models.enrollment import Enrollment
-
+from backend.models.user import User, UserRole
+from backend.repositories.base_repository import BaseRepository
+from backend.repositories.class_repository import ClassRepository
+from backend.repositories.course_repository import CourseRepository
 from backend.repositories.session_repository import SessionRepository
 from backend.repositories.task_repository import TaskRepository
-from backend.repositories.course_repository import CourseRepository
-from backend.repositories.class_repository import ClassRepository
-from backend.repositories.base_repository import BaseRepository
-
 from backend.services.session_analytics_service import SessionAnalyticsService
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class SessionService:

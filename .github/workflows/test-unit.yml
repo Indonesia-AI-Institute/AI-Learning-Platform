@@ -1,7 +1,7 @@
 name: Test Suite (Unit)
 
 # Reusable workflow, called by test.yml, pr-validate.yml, and release.yml.
-# A sibling of test-suite-integration.yml rather than one file gated by a
+# A sibling of test-integration.yml rather than one file gated by a
 # scope input — that would leave every call showing the other scope's
 # jobs as permanently skipped in the checks UI.
 

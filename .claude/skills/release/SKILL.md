@@ -17,11 +17,11 @@ one is relevant to what you're asked about:
 
 | File | Trigger | Does |
 |---|---|---|
-| `test-suite-unit.yml` | `workflow_call` only, never triggered directly | Backend + frontend unit-test jobs, shared by the three below |
-| `test-suite-integration.yml` | `workflow_call` only, never triggered directly | Backend + frontend integration-test jobs (real Postgres service container). A separate file from unit, not one job gated by a scope input — that would leave every caller showing the other scope's jobs as permanently skipped in the checks UI |
-| `test.yml` | every push, any branch except `main` | Calls `test-suite-unit.yml` only — fast feedback, no DB. Excludes `main` deliberately, see `release.yml` below |
-| `pr-validate.yml` | every PR into `main` | Calls both `test-suite-unit.yml` and `test-suite-integration.yml` -> if both pass, a real (unpushed) Docker build of both images |
-| `release.yml` | push to `main` | PSR -> if a version was cut, calls both test-suite files again -> build+push the final images |
+| `test-unit.yml` | `workflow_call` only, never triggered directly | Backend + frontend unit-test jobs, shared by the three below |
+| `test-integration.yml` | `workflow_call` only, never triggered directly | Backend + frontend integration-test jobs (real Postgres service container). A separate file from unit, not one job gated by a scope input — that would leave every caller showing the other scope's jobs as permanently skipped in the checks UI |
+| `test.yml` | every push, any branch except `main` | Calls `test-unit.yml` only — fast feedback, no DB. Excludes `main` deliberately, see `release.yml` below |
+| `pr-validate.yml` | every PR into `main` | Calls both `test-unit.yml` and `test-integration.yml` -> if both pass, a real (unpushed) Docker build of both images |
+| `release.yml` | push to `main` | PSR -> if a version was cut, calls both `test-unit.yml` and `test-integration.yml` again -> build+push the final images |
 
 ## How a version gets decided
 
@@ -69,8 +69,8 @@ root — the config path is relative to wherever you invoke it from.
    template as `CHANGELOG.md`) — see `gh release list` / the repo's
    Releases page.
 2. `test-unit` / `test-integration` jobs: only run if `released ==
-   'true'`. Re-run both `test-suite-unit.yml` and
-   `test-suite-integration.yml` — the same tests that already ran on the
+   'true'`. Re-run both `test-unit.yml` and
+   `test-integration.yml` — the same tests that already ran on the
    PR that got merged — as a final sanity gate
    immediately before building a shippable image. This deliberately
    duplicates the PR-time run rather than trusting it alone, because
@@ -82,6 +82,11 @@ root — the config path is relative to wherever you invoke it from.
    `ghcr.io/indonesia-ai-institute/ai-learning-platform-{api,frontend}`,
    tagged `latest`, the exact version, and `{major}.{minor}` / `{major}`
    convenience tags.
+4. `update-release-notes`: only runs if both images pushed successfully.
+   Appends a `## Images` section listing the exact `image:version`
+   references to the GitHub Release body created in step 1 — the release
+   is created before the images exist, so this is a follow-up edit
+   (`gh release edit`), not part of the original creation.
 
 That's the end of the automated pipeline — there is no CD step. Getting
 a new image onto a real host is a manual `docker compose -f

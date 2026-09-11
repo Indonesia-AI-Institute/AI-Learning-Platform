@@ -64,13 +64,13 @@ jobs:
     name: Test Suite (post-release, unit)
     needs: [release]
     if: needs.release.outputs.released == 'true'
-    uses: ./.github/workflows/test-suite-unit.yml
+    uses: ./.github/workflows/test-unit.yml
 
   test-integration:
     name: Test Suite (post-release, integration)
     needs: [release]
     if: needs.release.outputs.released == 'true'
-    uses: ./.github/workflows/test-suite-integration.yml
+    uses: ./.github/workflows/test-integration.yml
 
   build-api:
     name: Build & Push API Image
@@ -170,10 +170,40 @@ jobs:
           # NEXT_PUBLIC_API_URL isn't a build-arg — it's resolved at
           # container runtime via window.__ENV__ (see entrypoint.sh).
 
+  update-release-notes:
+    name: Add Images to Release Notes
+    runs-on: ubuntu-latest
+    needs: [release, build-api, build-frontend]
+    if: >-
+      always() && needs.release.outputs.released == 'true' &&
+      needs.build-api.result == 'success' && needs.build-frontend.result == 'success'
+
+    steps:
+      # The GitHub Release already exists (created by `semantic-release
+      # version`, before the images were even built) — append the actual
+      # image references now that we know the push succeeded, rather than
+      # replacing the changelog-derived notes PSR already wrote.
+      - name: Append image references to the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.release.outputs.tag }}"
+          VERSION="${{ needs.release.outputs.version }}"
+          REPO="${{ github.repository }}"
+          {
+            gh release view "$TAG" --repo "$REPO" --json body -q .body
+            echo ""
+            echo "## Images"
+            echo ""
+            echo "- \`${{ env.IMAGE_BASE }}-api:${VERSION}\`"
+            echo "- \`${{ env.IMAGE_BASE }}-frontend:${VERSION}\`"
+          } > /tmp/release-notes.md
+          gh release edit "$TAG" --repo "$REPO" --notes-file /tmp/release-notes.md
+
   summary:
     name: Release Summary
     runs-on: ubuntu-latest
-    needs: [release, test-unit, test-integration, build-api, build-frontend]
+    needs: [release, test-unit, test-integration, build-api, build-frontend, update-release-notes]
     if: always()
 
     steps:

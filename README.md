@@ -100,7 +100,7 @@ docker-compose.prod.yml    prod: pulls prebuilt GHCR images
 .github/workflows/
   test.yml                  every push, any branch except main: unit tests only, fast
   pr-validate.yml            every PR into main: unit + integration, then (if both pass) a real Docker build (no push)
-  release.yml                push to main: version + GitHub Release, re-run unit + integration, then build + push to GHCR
+  release.yml                push to main: version + GitHub Release, re-run unit + integration, build + push to GHCR, then add the image refs to the Release notes
                             No CD — see "Docker: With the Repository" below
                             for the manual deploy steps.
 ```

@@ -2,8 +2,9 @@
 Title wajib diisi dan tidak boleh berupa string kosong/whitespace.
 """
 
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 

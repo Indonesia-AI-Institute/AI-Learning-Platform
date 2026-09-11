@@ -5,15 +5,13 @@ openai_provider.py
 OpenAI Provider with Production Logging.
 """
 
-from typing import Any, Dict, List
 import time
+from typing import Any, Dict, List
 
-from openai import AsyncOpenAI
-
-from backend.llm.base.llm_providers import BaseLLMProvider, llm_provider_registry
 from backend.core.config import settings
+from backend.llm.base.llm_providers import BaseLLMProvider, llm_provider_registry
 from backend.observability.logging.logger import get_logger
-
+from openai import AsyncOpenAI
 
 logger = get_logger(__name__)
 

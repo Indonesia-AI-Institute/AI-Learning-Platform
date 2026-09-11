@@ -1,12 +1,11 @@
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
-from backend.services.context_window_service import ContextWindowService
 from backend.models.chat_history import ChatHistory, MessageRole, MessageStatus
 from backend.repositories.chat_history_repository import ChatHistoryRepository
+from backend.services.context_window_service import ContextWindowService
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ChatHistoryService:

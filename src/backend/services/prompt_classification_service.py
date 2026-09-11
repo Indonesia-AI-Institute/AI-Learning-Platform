@@ -1,13 +1,12 @@
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, Integer
-
+from backend.models.class_model import Class
+from backend.models.course import Course
 from backend.models.prompt_classification import PromptClassification
 from backend.models.task import Task
-from backend.models.course import Course
-from backend.models.class_model import Class
 from backend.observability.logging.logger import get_logger
+from sqlalchemy import Integer, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = get_logger(__name__)
 

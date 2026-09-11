@@ -7,7 +7,6 @@ every endpoint that scopes data to "the current teacher's own courses".
 import uuid
 
 import pytest
-
 from factories import (
     auth_headers,
     create_course,

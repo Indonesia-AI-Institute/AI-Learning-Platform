@@ -2,18 +2,17 @@
 
 from functools import lru_cache
 
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.llm.services.llm_service import LLMService
 from backend.agents.registry.agent_registry import AgentRegistry
-from backend.services.chat_service import ChatService
-from backend.db.session import get_db
-from backend.models.user import User, UserRole
-from backend.repositories.user_repository import UserRepository
-from backend.repositories.token_blacklist_repository import TokenBlacklistRepository
 from backend.auth.security import decode_access_token
+from backend.db.session import get_db
+from backend.llm.services.llm_service import LLMService
+from backend.models.user import User, UserRole
+from backend.repositories.token_blacklist_repository import TokenBlacklistRepository
+from backend.repositories.user_repository import UserRepository
+from backend.services.chat_service import ChatService
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 security = HTTPBearer(auto_error=False)  # auto_error=False supaya tidak langsung 403 jika tidak ada Bearer
 

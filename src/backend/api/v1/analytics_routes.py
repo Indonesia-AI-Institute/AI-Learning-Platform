@@ -1,16 +1,15 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.api.deps import get_db, get_current_user
-from backend.utils.role_guard import RoleGuard
+from backend.api.deps import get_current_user, get_db
 from backend.models.user import User, UserRole
+from backend.observability.logging.logger import get_logger
+from backend.schemas.analytics.analytics_response import AnalyticsResponse
+from backend.services.prompt_classification_service import PromptClassificationService
 from backend.services.session_analytics_service import SessionAnalyticsService
 from backend.services.session_service import SessionService
-from backend.services.prompt_classification_service import PromptClassificationService
-from backend.schemas.analytics.analytics_response import AnalyticsResponse
-from backend.observability.logging.logger import get_logger
+from backend.utils.role_guard import RoleGuard
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = get_logger(__name__)
 

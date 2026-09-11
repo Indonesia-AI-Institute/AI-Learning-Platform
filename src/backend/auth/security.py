@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
+from backend.core.config import settings
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-
-from backend.core.config import settings
-
 
 pwd_context = CryptContext(
     schemes=["bcrypt_sha256"],

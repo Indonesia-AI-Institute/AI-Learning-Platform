@@ -1,11 +1,10 @@
 from typing import List
 from uuid import UUID
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from backend.models.enrollment import Enrollment
 from backend.repositories.base_repository import BaseRepository
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class EnrollmentRepository(BaseRepository[Enrollment]):

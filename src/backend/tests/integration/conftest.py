@@ -1,7 +1,6 @@
-import pytest_asyncio
-
-from backend.db.base import Base
 import backend.models  # noqa: F401 — registers every model on Base.metadata
+import pytest_asyncio
+from backend.db.base import Base
 
 
 @pytest_asyncio.fixture(autouse=True)

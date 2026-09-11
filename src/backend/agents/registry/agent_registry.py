@@ -1,10 +1,9 @@
+from pathlib import Path
 from typing import Dict
 
+from backend.agents.services.base_agent import BaseAgent
 from backend.agents.services.direct_agent import DirectTutorAgent
 from backend.agents.services.socratic_agent import SocraticTutorAgent
-from backend.agents.services.base_agent import BaseAgent
-
-from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 

@@ -12,7 +12,6 @@ handling turned every "not found" and "access denied" case into a raw
 import uuid
 
 import pytest
-
 from factories import (
     auth_headers,
     create_class,

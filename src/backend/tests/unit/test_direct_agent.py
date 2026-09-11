@@ -9,7 +9,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
-
 from backend.agents.services.direct_agent import DirectTutorAgent
 
 CONFIG_PATH = str(

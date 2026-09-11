@@ -1,18 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.db.session import get_db
 from backend.api.deps import get_current_user
-from backend.services.auth_service import AuthService
 from backend.core.config import settings
-
+from backend.db.session import get_db
 from backend.models.user import User
-
-from backend.schemas.auth.register_request import RegisterRequest
 from backend.schemas.auth.login_request import LoginRequest
+from backend.schemas.auth.register_request import RegisterRequest
 from backend.schemas.auth.token_response import TokenResponse
 from backend.schemas.auth.user_response import UserResponse
+from backend.services.auth_service import AuthService
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 

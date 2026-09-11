@@ -1,13 +1,12 @@
 from typing import List
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
 from backend.models.chat_session import ChatSession
-from backend.models.task import Task
 from backend.models.course import Course
+from backend.models.task import Task
 from backend.repositories.base_repository import BaseRepository
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class SessionRepository(BaseRepository[ChatSession]):

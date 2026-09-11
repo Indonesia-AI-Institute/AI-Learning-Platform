@@ -2,19 +2,18 @@
 Business logic for authentication.
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.models.user import User
-from backend.repositories.user_repository import UserRepository
-from backend.schemas.auth.register_request import RegisterRequest
-from backend.schemas.auth.login_request import LoginRequest
-from backend.repositories.token_blacklist_repository import TokenBlacklistRepository
-from backend.schemas.auth.token_response import TokenResponse
 from backend.auth.security import (
+    create_access_token,
     hash_password,
     verify_password,
-    create_access_token,
 )
+from backend.models.user import User
+from backend.repositories.token_blacklist_repository import TokenBlacklistRepository
+from backend.repositories.user_repository import UserRepository
+from backend.schemas.auth.login_request import LoginRequest
+from backend.schemas.auth.register_request import RegisterRequest
+from backend.schemas.auth.token_response import TokenResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Precomputed once and verified against on every login where the email
 # doesn't exist, so a bcrypt comparison always runs either way — otherwise

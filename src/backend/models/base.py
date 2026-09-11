@@ -1,11 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Boolean
+from backend.db.base import Base
+from sqlalchemy import Boolean, Column, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-
-from backend.db.base import Base
 
 
 class UUIDMixin:

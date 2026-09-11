@@ -7,7 +7,6 @@ column on Class itself.
 import uuid
 
 import pytest
-
 from factories import (
     auth_headers,
     create_class,

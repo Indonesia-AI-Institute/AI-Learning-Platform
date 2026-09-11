@@ -1,5 +1,7 @@
-from pydantic import BaseModel, Field, field_validator
 from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator
+
 
 class CourseUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=255)

@@ -1,5 +1,4 @@
 import pytest
-
 from backend.guardrails.banlist_filter import BanListFilter, _normalize
 
 

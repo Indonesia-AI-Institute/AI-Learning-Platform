@@ -5,7 +5,6 @@ Integration coverage for api/v1/enrollment_routes.py — previously untested.
 import uuid
 
 import pytest
-
 from factories import (
     auth_headers,
     create_class,

@@ -5,9 +5,10 @@ is_active wajib ada di response agar:
 3. Auto-deactivate due date reflect ke UI
 """
 
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 from uuid import UUID
+
 from pydantic import BaseModel
 
 

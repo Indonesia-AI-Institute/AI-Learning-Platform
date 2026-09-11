@@ -4,10 +4,9 @@ Centralized Role-Based Access Control (RBAC) Dependency.
 
 from typing import Iterable
 
-from fastapi import Depends, HTTPException, status
-
 from backend.api.deps import get_current_user
 from backend.models.user import User, UserRole
+from fastapi import Depends, HTTPException, status
 
 
 class RoleGuard:

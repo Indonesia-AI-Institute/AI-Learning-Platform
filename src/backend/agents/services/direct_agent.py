@@ -2,7 +2,8 @@
 DirectTutorAgent implements single-pass direct explanation behavior.
 """
 
-from typing import Any, Dict, List, AsyncGenerator
+from typing import Any, AsyncGenerator, Dict, List
+
 from .base_agent import BaseAgent
 
 

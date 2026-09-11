@@ -4,8 +4,9 @@ disertakan tidak boleh kosong.
 is_active wajib ada agar toggle active/inactive berfungsi.
 """
 
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 

@@ -10,6 +10,7 @@ A full-stack AI-powered learning platform that enables teachers to manage course
   - [Table of Contents](#table-of-contents)
   - [Tech Stack](#tech-stack)
   - [Architecture](#architecture)
+  - [Project Structure](#project-structure)
   - [Prerequisites](#prerequisites)
   - [Getting Started](#getting-started)
     - [Docker: With the Repository](#docker-with-the-repository)
@@ -21,6 +22,7 @@ A full-stack AI-powered learning platform that enables teachers to manage course
   - [Testing](#testing)
   - [API Overview](#api-overview)
   - [Troubleshooting](#troubleshooting)
+  - [Claude Code Project Tooling](#claude-code-project-tooling)
   - [License](#license)
 
 ---
@@ -86,6 +88,26 @@ Service Layer   -->  Business logic
 
 When a student sends a message, two things happen in parallel: the LLM streams a response back to the client via SSE, and a background task classifies the prompt into 9 boolean categories and saves the result. This classification adds zero latency to the student experience.
 
+---
+
+## Project Structure
+
+```
+src/backend/    FastAPI + SQLAlchemy + PostgreSQL — see src/backend/README.md
+src/frontend/   Next.js 16 + React 19 — see src/frontend/README.md
+docker-compose.yml         dev: builds both images locally, bundles a local db
+docker-compose.prod.yml    prod: pulls prebuilt GHCR images
+deploy.sh                   pulls the latest images and restarts services (run by CI on deploy)
+.github/workflows/         CI (build + push on merge to main) and CD (deploy)
+```
+
+`src/backend/` and `src/frontend/` are each self-contained projects — own
+lockfile, own Dockerfile, own test suite, own `README.md` with full
+setup/testing/API details for that side specifically. This file covers
+running and configuring the two together; see those for anything
+project-specific (adding an endpoint, adding a page, that project's own
+conventions).
+
 ## Prerequisites
 
 - Docker 24+ and Docker Compose v2
@@ -115,10 +137,9 @@ cd AI-Learning-Platform
 ```bash
 cp .env.be.example .env.be
 cp .env.fe.example .env.fe
-cp .env.example .env
 ```
 
-Fill in the required values in `.env.be` and `.env.fe`. `.env` is optional — it configures `docker compose` itself (host port mappings) rather than the apps. See the [Environment Variables](#environment-variables) section for the full reference.
+Fill in the required values in `.env.be` and `.env.fe`. See the [Environment Variables](#environment-variables) section for the full reference.
 
 **3. Pull images from GHCR and start**
 
@@ -297,7 +318,7 @@ Copy `.env.be.example` to `.env.be` (backend) and `.env.fe.example` to `.env.fe`
 
 When running with Docker, `DATABASE_URL` must use `db` as the host (the Docker service name), not `localhost`.
 
-The root `.env` (copied from `.env.example`) is separate — it configures `docker compose` itself rather than the apps, since env vars in `.env.be`/`.env.fe` aren't visible to Compose's own `${VAR}` substitution. Use it to change host port mappings (`API_PORT`, `FRONTEND_PORT` — these also override the container's own `PORT`, so the mapping never drifts out of sync). Optional — everything defaults to the values already in the compose files.
+`PORT` in `.env.be`/`.env.fe` changes what each app listens to *inside* its container, but not the host-side port mapping in `docker-compose.yml` (`"8000:8000"`, `"3000:3000"`) — Compose's own `${VAR}` substitution can't read `env_file` values, only actual env vars or a `.env` file it loads itself, so the two aren't linked. Changing the port both apps use means editing both `.env.be`/`.env.fe` *and* the `ports:` line in `docker-compose.yml` to match.
 
 ---
 
@@ -376,7 +397,9 @@ docker compose exec api alembic -c backend/alembic.ini upgrade head
 
 ## Testing
 
-Integration tests need a real Postgres — the models use `sqlalchemy.dialects.postgresql.UUID`, which SQLite can't run. Point them at any disposable Postgres instance (a local one, or `docker run -d -p 5433:5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test postgres:15-alpine`); each test run drops and recreates the schema, so nothing else should be using that database.
+Backend and frontend suites are independent — run either without the other.
+
+**Backend.** Integration tests need a real Postgres — the models use `sqlalchemy.dialects.postgresql.UUID`, which SQLite can't run. Point them at any disposable Postgres instance (a local one, or `docker run -d -p 5433:5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test postgres:15-alpine`); each test run drops and recreates the schema, so nothing else should be using that database.
 
 ```bash
 cd src/backend
@@ -393,6 +416,21 @@ PYTHONPATH=src uv run --project src/backend pytest src/backend/tests
 PYTHONPATH=src uv run --project src/backend pytest src/backend/tests/unit
 PYTHONPATH=src uv run --project src/backend pytest src/backend/tests/integration
 ```
+
+**Frontend.** No database or Docker needed — network calls are mocked at the HTTP boundary with MSW.
+
+```bash
+cd src/frontend
+bun install
+bun test              # everything
+bun run test:unit     # pure logic + hooks, no network
+bun run test:integration  # components, MSW-mocked network calls
+bun run lint
+bun run build
+```
+
+Neither suite runs in CI today (see the root `CLAUDE.md`'s Critical
+Rules) — a passing local run is currently the only gate before merging.
 
 ---
 
@@ -476,6 +514,48 @@ echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-s
 ```
 
 Make sure the PAT has the `read:packages` scope.
+
+---
+
+## Claude Code Project Tooling
+
+This repo has its own `.claude/`, plus one inside each of `src/backend/`
+and `src/frontend/`:
+
+- **`CLAUDE.md`** (this directory) — repo-wide architecture, the env-file
+  split, dev-vs-prod compose files, the release/deploy pipeline, and
+  cross-cutting known gaps. `src/backend/CLAUDE.md` and
+  `src/frontend/CLAUDE.md` cover each project's own internals in depth.
+- **`.claude/skills/`** — eight full-stack orchestration skills, each
+  invocable as `/<name>`:
+  - **`full-stack-dev`** — bring up Postgres + API + frontend together
+    via `docker compose` for local development.
+  - **`full-stack-check`** — run both projects' comprehensive checks
+    (backend pytest, frontend lint/build/test) with one consolidated report.
+  - **`docker-smoke-test`** — build and run the full stack together,
+    verifying real integration (a live registration call, the frontend's
+    route guard, runtime env resolution) — not just that each image builds.
+  - **`release`** — how conventional commits map to version bumps, and
+    how to check what the next version would be without triggering one.
+  - **`new-feature`** — orchestrates each project's own scaffolding
+    skills, in order, for a feature that needs both an API and a UI.
+  - **`open-pr`** — commit, push, and open a PR following this repo's
+    branch-naming, commit-message, and PR-body conventions.
+  - **`docs-sync-check`** — audit CLAUDE.md/README.md files against
+    actual repo state (paths that no longer exist, skill names that don't
+    match their directory, env vars the code no longer reads) — this
+    exact class of drift has happened for real here more than once.
+  - **`security-check`** — the integration surface between backend and
+    frontend specifically (CORS/cookie/CSP consistency, secret leakage
+    across the env-file boundary, network exposure) — each project's own
+    `security-check` only looks at its own side.
+
+  Skills for scaffolding new code inside one project (a new backend
+  endpoint, a new frontend page/hook/component, that project's own test
+  audit) live in that project's own `.claude/skills/` — see
+  [`src/backend/README.md`](src/backend/README.md#claude-code-project-tooling)
+  and [`src/frontend/README.md`](src/frontend/README.md#claude-code-project-tooling)
+  for those lists.
 
 ---
 

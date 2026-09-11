@@ -1,13 +1,12 @@
 from typing import List
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-
-from backend.models.course import Course
 from backend.models.class_model import Class
+from backend.models.course import Course
 from backend.repositories.base_repository import BaseRepository
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 
 class ClassRepository(BaseRepository[Class]):

@@ -1,6 +1,4 @@
 import pytest
-from pydantic import ValidationError
-
 from backend.schemas.auth.register_request import RegisterRequest
 from backend.schemas.chat.chat_request import ChatMessage, ChatRequest
 from backend.schemas.chat.chat_session_create_request import ChatSessionCreateRequest
@@ -10,6 +8,7 @@ from backend.schemas.course.course_create import CourseCreate
 from backend.schemas.course.course_update import CourseUpdate
 from backend.schemas.task.task_create import TaskCreate
 from backend.schemas.task.task_update import TaskUpdate
+from pydantic import ValidationError
 
 
 def test_chat_message_content_within_limit_ok():

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr, Field
 from backend.models.user import UserRole
+from pydantic import BaseModel, EmailStr, Field
 
 
 class RegisterRequest(BaseModel):

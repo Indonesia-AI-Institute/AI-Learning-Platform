@@ -17,10 +17,10 @@ one is relevant to what you're asked about:
 
 | File | Trigger | Does |
 |---|---|---|
-| `reusable-test.yml` | `workflow_call` only, never triggered directly | Defines `test-backend`/`test-frontend` once, shared by the three below |
-| `test.yml` | every push, any branch | Tests only, fast feedback |
-| `pr-validate.yml` | every PR into `main` | Tests + a build-only Docker validation (no push), in parallel |
-| `release.yml` | push to `main` | PSR -> if a version was cut, re-run tests -> build+push the final images |
+| `reusable-test.yml` | `workflow_call` only, never triggered directly | Defines the backend/frontend test jobs once, shared by the three below. Takes a `scope: unit\|full` input — `unit` skips Postgres and the integration suite entirely (separate jobs, not just a narrower test path) |
+| `test.yml` | every push, any branch | `scope: unit` — fast feedback, no DB |
+| `pr-validate.yml` | every PR into `main` | `scope: full` (unit + integration) -> if that passes, a build-only Docker validation (no push) |
+| `release.yml` | push to `main` | PSR -> if a version was cut, re-run `scope: full` -> build+push the final images |
 
 ## How a version gets decided
 
@@ -63,10 +63,11 @@ root — the config path is relative to wherever you invoke it from.
 
 1. `release` job (`release.yml`): PSR tags `main`, updates
    `CHANGELOG.md`, pushes both back to the repo.
-2. `test` job: only runs if `released == 'true'`. Re-runs the exact same
-   `reusable-test.yml` that already ran on the PR that got merged — this
-   is a final sanity gate immediately before building a shippable image,
-   not a substitute for the PR-time run.
+2. `test` job: only runs if `released == 'true'`. Re-runs
+   `reusable-test.yml` at `scope: full` — the same full suite that
+   already ran on the PR that got merged — as a final sanity gate
+   immediately before building a shippable image, not a substitute for
+   the PR-time run.
 3. `build-api` / `build-frontend`: only run if the post-release `test`
    job succeeded. Build and push
    `ghcr.io/indonesia-ai-institute/ai-learning-platform-{api,frontend}`,
@@ -97,4 +98,6 @@ deferred gaps".
   telling anyone a change is live.
 - Don't assume a passing PR check means the merge is safe to make blindly
   — CI runs tests now, but no branch protection rule currently requires
-  them to pass before merging (root `CLAUDE.md` Critical Rule 3).
+  them to pass before merging, and none can be configured yet: this repo
+  is private on a GitHub plan where both classic branch protection and
+  rulesets are unavailable (root `CLAUDE.md` Critical Rule 3).

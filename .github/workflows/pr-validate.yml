@@ -1,11 +1,10 @@
 name: PR Validate
 
 # On every PR into main: the full test suite (via the shared reusable
-# workflow) plus a Docker build-only validation for both images — proving
-# the Dockerfiles still build, without pushing anything to GHCR. These run
-# in parallel as independent checks rather than gating one on the other,
-# so a PR gets both signals at once instead of waiting on tests before
-# finding out the build is also broken.
+# workflow) runs first, and the Docker build-only validation for both
+# images (proving the Dockerfiles still build, without pushing anything
+# to GHCR) only runs if that passes — no point spending build minutes on
+# a change whose tests already fail.
 
 on:
   pull_request:
@@ -23,10 +22,13 @@ jobs:
   test:
     name: Test Suite
     uses: ./.github/workflows/reusable-test.yml
+    with:
+      scope: full
 
   build-api:
     name: Build API Image (validation only)
     runs-on: ubuntu-latest
+    needs: [test]
 
     steps:
       - name: Checkout repository
@@ -61,6 +63,7 @@ jobs:
   build-frontend:
     name: Build Frontend Image (validation only)
     runs-on: ubuntu-latest
+    needs: [test]
 
     steps:
       - name: Checkout repository

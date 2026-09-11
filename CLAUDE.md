@@ -30,17 +30,19 @@ docker-compose.prod.yml   prod: pulls prebuilt GHCR images, no bundled db
 .env.be.example            backend runtime config (copy to .env.be)
 .env.fe.example            frontend runtime config (copy to .env.fe)
 .github/workflows/
-  reusable-test.yml         shared test-backend/test-frontend jobs, called
-                             by the three below (not triggered directly)
-  test.yml                  every push, any branch: run tests only
-  pr-validate.yml            every PR into main: tests + build-only Docker
-                             validation (no push), in parallel
+  reusable-test.yml         shared test jobs (unit and full variants per
+                             project), called by the three below, takes a
+                             `scope: unit|full` input (not triggered directly)
+  test.yml                  every push, any branch: unit tests only, fast
+  pr-validate.yml            every PR into main: full suite, then (only
+                             if it passes) build-only Docker validation
+                             (no push)
   release.yml                push to main: semantic-release -> if a version
-                             was cut, re-run tests -> build+push the final
-                             images. No CD — deployment is manual, see the
-                             root README's "Docker: With the Repository"
-                             section (docker compose -f docker-compose.prod.yml
-                             pull/up).
+                             was cut, re-run the full suite -> build+push
+                             the final images. No CD — deployment is
+                             manual, see the root README's "Docker: With
+                             the Repository" section (docker compose -f
+                             docker-compose.prod.yml pull/up).
 ```
 
 Both `src/backend/` and `src/frontend/` are self-contained projects (own
@@ -76,15 +78,22 @@ host port mapping for the API at all (not internet-exposed directly in
 production). These two files are allowed to diverge on purpose, this
 isn't drift to "fix."
 
-**3. CI runs the full test suite, but nothing currently blocks a merge on
-a red check.** `test.yml`/`pr-validate.yml` run both projects' suites on
-every push and every PR into `main`, and `release.yml` runs them a third
-time immediately before building the final image — but no branch
-protection rule requires those checks to pass before merging. That's a
-GitHub repo setting, not a workflow file, and hasn't been configured. A
-green PR check is real signal now (a change from before, when CI didn't
-run tests at all), but until branch protection requires it, a human can
-still merge past a red check.
+**3. CI runs tests on every push and PR, but nothing currently blocks a
+merge on a red check — and can't yet.** `test.yml` runs both projects'
+*unit* suites on every push to any branch (fast, no Postgres);
+`pr-validate.yml` runs the *full* suite (unit + integration) plus a
+build-only Docker validation on every PR into `main`; `release.yml` runs
+the full suite a third time immediately before building the final image.
+But requiring those checks to pass before merging needs GitHub branch
+protection or repository rulesets, and **both are unavailable on this
+repo right now** — it's private, and both features require GitHub
+Pro/Team for a private repo (confirmed via `gh api .../branches/main/protection`
+returning a 403 "Upgrade to GitHub Pro or make this repository public").
+This isn't a config oversight to "just fix" — it needs a plan upgrade or
+making the repo public, a real decision, before a required-status-check
+rule can exist at all. Until then, a green PR check is real signal (a
+change from before, when CI didn't run tests at all), but a human can
+still click merge past a red one.
 
 **4. Commit messages drive versioning.** `python-semantic-release`
 (configured in the repo-root `pyproject.toml` — deliberately not
@@ -119,8 +128,10 @@ skill in each project's `.claude/skills/` for the exact invocation
 (`pytest` for the backend needs a real Postgres; `bun test` for the
 frontend needs nothing but Bun). To check both at once before pushing,
 use this repo's own `full-stack-check` skill — this is also exactly what
-CI runs on every push and PR (see Critical Rule 3), so a clean local run
-is a reliable predictor of CI passing, not just a courtesy check.
+CI runs on every PR (see Critical Rule 3); a plain push to a branch only
+runs the unit subset, faster but narrower. A clean local
+`full-stack-check` run is a reliable predictor of the PR check passing,
+not just a courtesy check.
 
 ## Known, deliberately deferred gaps
 
@@ -130,9 +141,15 @@ don't "fix" them without a product decision:
 - **No branch protection enforcing the CI test gate** (Critical Rule 3) —
   tests now run automatically on every push and PR, but merging past a
   failing check is still possible since no required-status-check rule is
-  configured on `main`. That's a repo settings change (or an
-  `gh api`/Terraform-managed one), not a workflow file, and hasn't been
-  made yet — raise it explicitly before assuming it's in place.
+  configured on `main`. Unlike most gaps in this list, this one **can't
+  currently be closed by configuration alone**: both classic branch
+  protection and repository rulesets require GitHub Pro/Team for a
+  private repo, and this repo is private on a plan without either. Making
+  the repo public or upgrading the org's plan is a real decision for
+  whoever owns that call, not something to do unilaterally — once either
+  happens, the required checks would be `pr-validate.yml`'s `test`
+  (`Backend Tests (pytest, full)` / `Frontend Tests (bun test, full)`),
+  `build-api`, and `build-frontend`.
 - **No automated deployment.** `.github/workflows/deploy.yml` (SSH to a
   production host, pull the latest images, restart via `deploy.sh`) was
   removed deliberately — CI now only builds and pushes images to GHCR on

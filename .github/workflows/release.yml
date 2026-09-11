@@ -62,6 +62,8 @@ jobs:
     needs: [release]
     if: needs.release.outputs.released == 'true'
     uses: ./.github/workflows/reusable-test.yml
+    with:
+      scope: full
 
   build-api:
     name: Build & Push API Image

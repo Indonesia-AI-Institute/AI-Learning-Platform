@@ -1,6 +1,122 @@
 # CHANGELOG
 
 
+## v1.2.0 (2026-09-11)
+
+### Bug Fixes
+
+- **frontend**: Reset the 401 redirect guard's module singleton between test files
+  ([`98b6ba6`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/98b6ba640d12a45e277102025fbeafac6f987bf7))
+
+pr-validate.yml's new full-suite test run (this branch's own CI change) immediately caught a real,
+  pre-existing bug: src/lib/api.ts's isRedirecting flag is module-private state that's never reset,
+  which is fine in production (a real redirect ends the page's JS context) but leaks across every
+  test file in the same `bun test` process. tests/unit/api.test.ts's "redirects to /login on a 401
+  when not already there" test only passed before because CI never ran the frontend suite at all,
+  and locally it happened to run before any other file (useAuth/useCurrentUser/LoginForm's
+  integration tests all trigger real 401s through the same shared api instance too) poisoned the
+  flag first.
+
+Adds a test-only __resetRedirectGuardForTests() export, called once in a beforeAll for api.test.ts's
+  "api 401 redirect guard" describe block — this makes that block's own intentional internal
+  test-ordering (documented in its existing comment) immune to whatever ran in other files before
+  it, without touching the block's own sequencing.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### Chores
+
+- Remove automated deploy workflow and deploy.sh
+  ([`d08e10e`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/d08e10ef2e3f76413201deaf75199c269367c4bc))
+
+There is no production host wired up for the SSH-based CD step
+  (PROD_SSH_HOST/PROD_SSH_USER/PROD_SSH_KEY/PROD_DEPLOY_PATH/CR_PAT secrets), so deploy.yml was dead
+  automation - it would only ever run manually or never fire meaningfully. deploy.sh has no other
+  caller, so it goes with it. Deployment is now documented as the manual `docker compose -f
+  docker-compose.prod.yml pull && up -d` path that already existed in the README, rather than a
+  half-wired automated one.
+
+Updates CLAUDE.md (drops Critical Rule 3 on deploy.sh's location, renumbers the remaining rules,
+  documents the removal under "Known, deliberately deferred gaps"), README.md, and the release skill
+  to match - container-build.yml now only builds and pushes images to GHCR, nothing deploys them
+  further.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### Features
+
+- **ci**: Split CI into test/PR-validate/release workflows, move release config to repo root
+  ([`4e805f1`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/4e805f184b344d74d4063cc4d5d1efa3030e103f))
+
+Replaces the single container-build.yml with four workflow files, each with one job:
+  reusable-test.yml (shared test-backend/test-frontend jobs, called by the others, never triggered
+  directly), test.yml (every push, any branch: tests only, fast feedback), pr-validate.yml (every PR
+  into main: tests + a build-only Docker validation, no push, in parallel), and
+
+release.yml (push to main: semantic-release -> if a version was cut, re-run the full test suite one
+  more time against that exact commit -> only if that passes, build and push the final versioned
+  images to GHCR). Previously nothing in CI ran pytest/bun test at all.
+
+Moves python-semantic-release's [tool.semantic_release] config out of src/backend/pyproject.toml
+  into a new repo-root pyproject.toml (no [project]/[build-system] table — it isn't a Python
+  project, just a place for platform-level tool config that versions the whole repo, not just the
+  backend). Also drops the two stray python-semantic-release entries from the backend's own
+  dependency lists — it's a CI-installed tool (pip install python-semantic-release==9.* in
+  release.yml), never a backend runtime or dev dependency.
+
+Updates CLAUDE.md (repo layout, Critical Rule 3 no longer claims there's no CI test gate — it now
+  documents that tests run but nothing enforces them via branch protection yet, Critical Rule 4's
+  config path), backend CLAUDE.md, README.md, and the release skill to match.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- **ci**: Split test scope into unit/full, gate PR build on tests passing
+  ([`b5ce9a0`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/b5ce9a039da9652e6053cda4e32d62987aa68476))
+
+Revises the CI split from the previous commit per review:
+
+- reusable-test.yml now takes a `scope: unit|full` input. Branch pushes (test.yml) use scope=unit
+  (fast, no Postgres, no integration suite — genuinely separate jobs, not just a narrower pytest
+  path, since a service container can't be made conditional). PRs (pr-validate.yml) and the
+  post-release check (release.yml) use scope=full (unit + integration). - pr-validate.yml's
+  build-api/build-frontend now `needs: [test]` instead of running in parallel with it — no point
+  spending build minutes validating a Dockerfile change whose tests already fail. - Confirmed (via
+  `gh api .../branches/main/protection`, 403) that this repo can't yet get a required-status-check
+  rule regardless of workflow config — both classic branch protection and rulesets need GitHub
+  Pro/Team for a private repo, and this repo is private on a plan without either. Documented as a
+  real, unresolved gap in CLAUDE.md rather than left implicit.
+
+Updates CLAUDE.md, README.md, and the release skill to match.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### Refactoring
+
+- **ci**: True unit/integration split, fix GitHub Release creation, tidy workflows
+  ([`4503943`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/450394356719cc957697c0e764e8954ba69f93a6))
+
+Three changes on top of the previous CI-revamp commit:
+
+- Splits reusable-test.yml's scope from unit/full into unit/integration (no combined scope):
+  test.yml runs unit only on feature-branch pushes; pr-validate.yml calls both scopes separately on
+  every PR, gating its Docker build on both passing; release.yml re-runs both scopes again
+  post-release, gating the final image build on both — deliberately duplicating pr-validate.yml's
+  checks, since nothing currently enforces those passing before a merge (no branch protection on
+  this repo's GitHub plan), making this the real last gate before an image ships. - Fixes a real,
+  separate bug: release.yml passed --no-vcs-release to `semantic-release version`, which suppresses
+  GitHub Release creation — confirmed via `gh release list` returning empty despite 5 existing
+  version tags. Removed the flag; `version` now tags, pushes, and creates the GitHub Release in one
+  step. - Renames reusable-test.yml to test-suite.yml (git mv, history preserved) and trims comments
+  across all four workflow files down to load-bearing "why" context, cutting restated/redundant
+  explanation. - Renames pr-validate.yml's build-api/build-frontend jobs to
+  test-build-api/test-build-frontend, dropping the "(validation only)"/ "(no push)" labels from job
+  and step names.
+
+Updates CLAUDE.md, README.md, and the release skill throughout to match.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+
 ## v1.1.0 (2026-09-11)
 
 ### Chores

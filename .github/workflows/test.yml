@@ -1,0 +1,19 @@
+name: Test
+
+# Fast feedback on every push to any branch, including main. This is
+# separate from pr-validate.yml (which additionally does a build-only
+# Docker validation) and from release.yml's own post-release test run
+# (which gates the final image build) — see the root CLAUDE.md and the
+# `release` skill for how the three fit together.
+
+on:
+  push:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test Suite
+    uses: ./.github/workflows/reusable-test.yml

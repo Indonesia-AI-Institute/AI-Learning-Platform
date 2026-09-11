@@ -1,0 +1,188 @@
+name: Release & Publish
+
+# Runs only on push to main. Sequence: cut a version from commit history
+# (python-semantic-release, config at the repo-root pyproject.toml — see
+# CLAUDE.md's "Commit messages drive versioning" rule) -> if that produced
+# a real version bump, re-run the full test suite one more time against
+# that exact commit -> only if that passes, build and push the versioned
+# images to GHCR. PR validation (tests + build-only) already happened
+# before this merge landed — see pr-validate.yml — this is a final gate
+# immediately before shipping an artifact, not a substitute for it.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write # semantic-release needs this to push the tag & CHANGELOG
+  packages: write # docker push to GHCR
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BASE: ghcr.io/indonesia-ai-institute/ai-learning-platform
+
+jobs:
+  release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # PSR needs full history to read every commit since the last tag
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install python-semantic-release
+        run: pip install python-semantic-release==9.*
+
+      - name: Run semantic-release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release --config pyproject.toml version --no-vcs-release
+          semantic-release --config pyproject.toml publish
+
+  test:
+    name: Test Suite (post-release)
+    needs: [release]
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/reusable-test.yml
+
+  build-api:
+    name: Build & Push API Image
+    runs-on: ubuntu-latest
+    needs: [release, test]
+    if: always() && needs.release.outputs.released == 'true' && needs.test.result == 'success'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract Docker metadata (API)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_BASE }}-api
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.release.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/backend
+          file: ./src/backend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+  build-frontend:
+    name: Build & Push Frontend Image
+    runs-on: ubuntu-latest
+    needs: [release, test]
+    if: always() && needs.release.outputs.released == 'true' && needs.test.result == 'success'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract Docker metadata (Frontend)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_BASE }}-frontend
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.release.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag }}
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/frontend
+          file: ./src/frontend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          # NEXT_PUBLIC_API_URL is deliberately not passed as a build-arg —
+          # it's resolved at container runtime via window.__ENV__ instead,
+          # so this image is environment-agnostic. See entrypoint.sh.
+
+  summary:
+    name: Release Summary
+    runs-on: ubuntu-latest
+    needs: [release, test, build-api, build-frontend]
+    if: always()
+
+    steps:
+      - name: Print summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.release.outputs.released }}" == "true" ]; then
+            echo "**New release:** \`${{ needs.release.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**Post-release tests:** ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Service | Image |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| API | \`${{ env.IMAGE_BASE }}-api:${{ needs.release.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Frontend | \`${{ env.IMAGE_BASE }}-frontend:${{ needs.release.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**No release:** no commit since the last tag triggers a version bump." >> $GITHUB_STEP_SUMMARY
+            echo "Use a \`feat:\`, \`fix:\`, \`perf:\`, \`refactor:\`, or \`feat!:\` commit to trigger one." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY

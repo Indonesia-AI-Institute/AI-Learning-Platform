@@ -97,7 +97,10 @@ src/backend/    FastAPI + SQLAlchemy + PostgreSQL — see src/backend/README.md
 src/frontend/   Next.js 16 + React 19 — see src/frontend/README.md
 docker-compose.yml         dev: builds both images locally, bundles a local db
 docker-compose.prod.yml    prod: pulls prebuilt GHCR images
-.github/workflows/         CI only: build + push to GHCR on merge to main.
+.github/workflows/
+  test.yml                  every push, any branch: run both test suites
+  pr-validate.yml            every PR into main: tests + build-only Docker validation
+  release.yml                push to main: version, re-test, then build + push to GHCR
                             No CD — see "Docker: With the Repository" below
                             for the manual deploy steps.
 ```
@@ -430,8 +433,12 @@ bun run lint
 bun run build
 ```
 
-Neither suite runs in CI today (see the root `CLAUDE.md`'s Critical
-Rules) — a passing local run is currently the only gate before merging.
+Both suites run automatically in CI — on every push (`test.yml`) and
+again on every PR into `main` alongside a build validation
+(`pr-validate.yml`) — but no branch protection rule currently requires
+those checks to pass before a merge is allowed (see the root `CLAUDE.md`'s
+Critical Rules). A local run is still the fastest signal; CI is the
+backstop, not yet an enforced gate.
 
 ---
 

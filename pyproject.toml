@@ -1,0 +1,55 @@
+# Platform-level configuration for the whole monorepo — currently just
+# python-semantic-release. This file deliberately has no [project] or
+# [build-system] table: it isn't a Python project itself, it's a place
+# for repo-wide tool config to live that isn't scoped to one half of the
+# stack. This used to live inside src/backend/pyproject.toml, which was
+# misleading — semantic-release versions and tags the whole repo (both
+# the -api and -frontend images get the same version), not just the
+# backend. See CLAUDE.md's "Commit messages drive versioning" rule.
+
+[tool.semantic_release]
+tag_format = "v{version}"
+major_on_zero = false
+branch = "main"
+commit_parser = "angular"
+
+# Only the backend's own pyproject.toml carries a "version" field worth
+# writing back to — the frontend's package.json version is independent
+# and not currently kept in sync (see CLAUDE.md's known gaps).
+version_toml = [
+    "src/backend/pyproject.toml:project.version"
+]
+
+[tool.semantic_release.commit_parser_options]
+minor_tags = ["feat"]
+
+patch_tags = [
+    "fix",
+    "perf",
+    "refactor"
+]
+
+allowed_tags = [
+    "feat",
+    "fix",
+    "perf",
+    "refactor",
+    "docs",
+    "style",
+    "test",
+    "chore",
+    "ci",
+    "build",
+    "revert"
+]
+
+[tool.semantic_release.changelog]
+changelog_file = "CHANGELOG.md"
+
+[tool.semantic_release.remote]
+type = "github"
+token = { env = "GH_TOKEN" }
+
+[tool.semantic_release.publish]
+dist_glob_patterns = []
+upload_to_vcs_release = true

@@ -29,10 +29,18 @@ docker-compose.yml        dev: builds both images locally, bundles a local db
 docker-compose.prod.yml   prod: pulls prebuilt GHCR images, no bundled db
 .env.be.example            backend runtime config (copy to .env.be)
 .env.fe.example            frontend runtime config (copy to .env.fe)
-.github/workflows/         CI only: build+push to GHCR on merge to main.
-                           No CD — deployment is manual, see the root README's
-                           "Docker: With the Repository" section
-                           (docker compose -f docker-compose.prod.yml pull/up).
+.github/workflows/
+  reusable-test.yml         shared test-backend/test-frontend jobs, called
+                             by the three below (not triggered directly)
+  test.yml                  every push, any branch: run tests only
+  pr-validate.yml            every PR into main: tests + build-only Docker
+                             validation (no push), in parallel
+  release.yml                push to main: semantic-release -> if a version
+                             was cut, re-run tests -> build+push the final
+                             images. No CD — deployment is manual, see the
+                             root README's "Docker: With the Repository"
+                             section (docker compose -f docker-compose.prod.yml
+                             pull/up).
 ```
 
 Both `src/backend/` and `src/frontend/` are self-contained projects (own
@@ -68,18 +76,20 @@ host port mapping for the API at all (not internet-exposed directly in
 production). These two files are allowed to diverge on purpose, this
 isn't drift to "fix."
 
-**3. There is no CI test gate.** `.github/workflows/container-build.yml`
-builds and pushes images on every merge to `main`; it does not run
-`pytest` or `bun test` at any point. Both suites exist and are
-comprehensive (see each project's own `CLAUDE.md`/`test` skill), but
-passing them is not currently required to merge or deploy — a human (or
-Claude, when asked) running them locally is the only gate today. Don't
-assume a green CI run means the tests passed; it means the build
-succeeded, which is a different, weaker claim.
+**3. CI runs the full test suite, but nothing currently blocks a merge on
+a red check.** `test.yml`/`pr-validate.yml` run both projects' suites on
+every push and every PR into `main`, and `release.yml` runs them a third
+time immediately before building the final image — but no branch
+protection rule requires those checks to pass before merging. That's a
+GitHub repo setting, not a workflow file, and hasn't been configured. A
+green PR check is real signal now (a change from before, when CI didn't
+run tests at all), but until branch protection requires it, a human can
+still merge past a red check.
 
 **4. Commit messages drive versioning.** `python-semantic-release`
-(configured in `src/backend/pyproject.toml`, but it versions the whole
-repo, not just the backend) reads Angular/conventional-commit-style
+(configured in the repo-root `pyproject.toml` — deliberately not
+`src/backend/pyproject.toml`, since it versions the whole repo, not just
+the backend) reads Angular/conventional-commit-style
 messages (`feat|fix|perf|refactor|docs|style|test|chore|ci|build|revert: ...`)
 on every push to `main` to decide the next version, tag it, and update
 `CHANGELOG.md`. A non-conventional commit message doesn't fail anything,
@@ -108,18 +118,21 @@ Each project's suite is independent and self-contained — see the `test`
 skill in each project's `.claude/skills/` for the exact invocation
 (`pytest` for the backend needs a real Postgres; `bun test` for the
 frontend needs nothing but Bun). To check both at once before pushing,
-use this repo's own `full-stack-check` skill.
+use this repo's own `full-stack-check` skill — this is also exactly what
+CI runs on every push and PR (see Critical Rule 3), so a clean local run
+is a reliable predictor of CI passing, not just a courtesy check.
 
 ## Known, deliberately deferred gaps
 
 These span both halves of the stack and were evaluated, not missed —
 don't "fix" them without a product decision:
 
-- **No CI test gate** (Critical Rule 3) — tests exist and are
-  comprehensive but aren't wired into `container-build.yml`. Adding that
-  is a real, scoped piece of work (a Postgres service container for the
-  backend job, a `bun test` step for the frontend job) that hasn't been
-  prioritized yet.
+- **No branch protection enforcing the CI test gate** (Critical Rule 3) —
+  tests now run automatically on every push and PR, but merging past a
+  failing check is still possible since no required-status-check rule is
+  configured on `main`. That's a repo settings change (or an
+  `gh api`/Terraform-managed one), not a workflow file, and hasn't been
+  made yet — raise it explicitly before assuming it's in place.
 - **No automated deployment.** `.github/workflows/deploy.yml` (SSH to a
   production host, pull the latest images, restart via `deploy.sh`) was
   removed deliberately — CI now only builds and pushes images to GHCR on

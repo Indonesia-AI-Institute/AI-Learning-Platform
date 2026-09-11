@@ -236,8 +236,9 @@ explicitly left as-is:
 
 - Commit messages follow Angular/conventional-commit style
   (`feat|fix|perf|refactor|docs|style|test|chore|ci|build|revert: ...`) —
-  `python-semantic-release` (configured in `pyproject.toml`) uses this to
-  cut versions and changelogs on `main`.
+  `python-semantic-release` (configured in the repo-root `pyproject.toml`,
+  not this project's own) uses this to cut versions and changelogs on
+  `main`.
 - Logging: `from backend.observability.logging.logger import get_logger`,
   `logger = get_logger(__name__)`. Never leak raw exception text in an
   HTTP response (`logger.exception(...)` + a generic `HTTPException`

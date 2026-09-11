@@ -1,0 +1,93 @@
+name: PR Validate
+
+# On every PR into main: the full test suite (via the shared reusable
+# workflow) plus a Docker build-only validation for both images — proving
+# the Dockerfiles still build, without pushing anything to GHCR. These run
+# in parallel as independent checks rather than gating one on the other,
+# so a PR gets both signals at once instead of waiting on tests before
+# finding out the build is also broken.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: pr-validate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_BASE: ghcr.io/indonesia-ai-institute/ai-learning-platform
+
+jobs:
+  test:
+    name: Test Suite
+    uses: ./.github/workflows/reusable-test.yml
+
+  build-api:
+    name: Build API Image (validation only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract Docker metadata (API)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_BASE }}-api
+          tags: |
+            type=ref,event=pr
+
+      - name: Build API image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/backend
+          file: ./src/backend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+  build-frontend:
+    name: Build Frontend Image (validation only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract Docker metadata (Frontend)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_BASE }}-frontend
+          tags: |
+            type=ref,event=pr
+
+      - name: Build Frontend image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/frontend
+          file: ./src/frontend/Dockerfile
+          platforms: linux/amd64
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend

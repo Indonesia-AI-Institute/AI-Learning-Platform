@@ -1,0 +1,73 @@
+name: Reusable Test Suite
+
+# Shared by test.yml (every branch push), pr-validate.yml (pull requests),
+# and release.yml (re-run right before building the final image). Kept as
+# one reusable workflow so the backend/frontend test invocation is defined
+# exactly once — see each project's own `test` skill for the equivalent
+# local commands this mirrors.
+
+on:
+  workflow_call:
+
+jobs:
+  test-backend:
+    name: Backend Tests (pytest)
+    runs-on: ubuntu-latest
+
+    # Integration tests need a real Postgres — sqlalchemy.dialects.postgresql.UUID
+    # can't run on SQLite. Port/credentials match this repo's disposable-container
+    # convention (see src/backend/.claude/skills/test/SKILL.md) so DATABASE_URL
+    # below is the same default the code already expects.
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.12.12" # matches src/backend/Dockerfile's pinned uv
+
+      - name: Sync backend dependencies
+        run: uv sync --project src/backend --extra dev
+
+      - name: Run pytest
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5433/test
+        run: |
+          PYTHONPATH="$(pwd)/src" uv run --project src/backend pytest src/backend/tests -q
+
+  test-frontend:
+    name: Frontend Tests (bun test)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2" # matches src/frontend/Dockerfile's pinned bun
+
+      - name: Install frontend dependencies
+        working-directory: src/frontend
+        run: bun install --frozen-lockfile
+
+      - name: Run bun test
+        working-directory: src/frontend
+        run: bun test

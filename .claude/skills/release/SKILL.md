@@ -1,6 +1,6 @@
 ---
 name: release
-description: Explain or verify this repo's release pipeline — how conventional commits map to version bumps, what happens on merge to main, and how to check what the next version would be. Use when asked about releasing, versioning, cutting a release, what version a change would trigger, or how deployment actually happens after a merge.
+description: Explain or verify this repo's release pipeline — how conventional commits map to version bumps, what happens on merge to main (through image build+push; there is no automated deploy), and how to check what the next version would be. Use when asked about releasing, versioning, cutting a release, what version a change would trigger, or how a new image actually gets deployed after a merge.
 ---
 
 # Release pipeline
@@ -55,11 +55,14 @@ curiosity or to sanity-check a PR before merging.
    `ghcr.io/indonesia-ai-institute/ai-learning-platform-{api,frontend}`,
    tagged `latest`, the exact version, and `{major}.{minor}` / `{major}`
    convenience tags.
-3. `deploy.yml` (a separate workflow, triggered by `build-and-push`
-   completing successfully on `main`): SSHes into the production host and
-   runs `deploy.sh latest` — see Critical Rule 3 in the root `CLAUDE.md`
-   for why `deploy.sh`'s location at the repo root (not
-   `.github/workflows/`) matters for this step to work at all.
+
+That's the end of the automated pipeline — there is no CD step. Getting
+a new image onto a real host is a manual `docker compose -f
+docker-compose.prod.yml pull && up -d` (see the root README's "Docker:
+With the Repository" section). A `deploy.yml` workflow that SSHed into a
+production host and did this automatically existed at one point and was
+deliberately removed — see the root `CLAUDE.md`'s "Known, deliberately
+deferred gaps".
 
 ## Don't
 

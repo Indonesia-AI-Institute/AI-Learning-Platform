@@ -20,6 +20,8 @@ out/
 .DS_Store
 
 # Tests
+tests/
+bunfig.toml
 coverage/
 .jest/
 

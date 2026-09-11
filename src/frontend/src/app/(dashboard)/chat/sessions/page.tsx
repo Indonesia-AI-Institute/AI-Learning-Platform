@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { chatService } from "@/services/chat.service";
 import { MessageSquare } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export default function ChatSessionsPage() {
   const router = useRouter();

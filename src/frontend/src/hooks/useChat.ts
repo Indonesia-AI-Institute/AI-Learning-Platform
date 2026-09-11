@@ -52,7 +52,6 @@ export function useChat({
         }
       ).catch(() => {});
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const sendMessage = useCallback(
@@ -131,8 +130,8 @@ export function useChat({
             setStreamingContent(fullContent);
           }
         }
-      } catch (err: any) {
-        if (err.name === "AbortError") return;
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
         setError("Failed to send message. Please try again.");
         setIsStreaming(false);
         setStreamingContent("");

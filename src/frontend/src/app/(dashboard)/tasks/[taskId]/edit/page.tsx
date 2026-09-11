@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { taskService } from "@/services/task.service";
+import { getErrorMessage } from "@/lib/errors";
 import { classService } from "@/services/class.service";
+import { Task } from "@/types/task.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,47 +20,36 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 
-export default function EditTaskPage() {
+function resolveInitialClassId(task: Task): string {
+  // The API returns class_id directly on some responses, class_info.id on others
+  return task.class_id || task.class_info?.id || "";
+}
+
+function resolveInitialDueDate(task: Task): string {
+  // due_date is an ISO datetime string; the date input only wants YYYY-MM-DD
+  return task.due_date ? task.due_date.substring(0, 10) : "";
+}
+
+// Split from the page component so its form fields can initialize their
+// state directly from the already-loaded `task` prop (lazy useState
+// initializers) instead of syncing it in via a useEffect — the effect
+// version triggers an extra render every time the query resolves.
+function EditTaskForm({ task }: { task: Task }) {
   const { taskId } = useParams<{ taskId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [classId, setClassId] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [isActive, setIsActive] = useState(true);
+  const [title, setTitle] = useState(task.title ?? "");
+  const [description, setDescription] = useState(task.description ?? "");
+  const [classId, setClassId] = useState(resolveInitialClassId(task));
+  const [dueDate, setDueDate] = useState(resolveInitialDueDate(task));
+  const [isActive, setIsActive] = useState(task.is_active ?? true);
   const [formError, setFormError] = useState("");
-
-  const { data: task, isLoading: loadingTask, isError: taskError } = useQuery({
-    queryKey: ["task", taskId],
-    queryFn: () => taskService.getTaskDetail(taskId),
-  });
 
   const { data: classes, isLoading: loadingClasses } = useQuery({
     queryKey: ["myClasses"],
     queryFn: () => classService.getMyClasses(),
   });
-
-  useEffect(() => {
-    if (!task) return;
-
-    setTitle(task.title ?? "");
-    setDescription(task.description ?? "");
-
-    // The API returns class_id directly on some responses, class_info.id on others
-    const resolvedClassId = task.class_id || task.class_info?.id || "";
-    setClassId(resolvedClassId);
-
-    // due_date is an ISO datetime string; the date input only wants YYYY-MM-DD
-    if (task.due_date) {
-      setDueDate(task.due_date.substring(0, 10));
-    } else {
-      setDueDate("");
-    }
-
-    setIsActive(task.is_active ?? true);
-  }, [task]);
 
   const updateMutation = useMutation({
     mutationFn: () => {
@@ -78,12 +69,9 @@ export default function EditTaskPage() {
       queryClient.invalidateQueries({ queryKey: ["tasksByClass"] });
       router.push(`/tasks/${taskId}`);
     },
-    onError: (err: any) => {
-      const msg =
-        err?.response?.data?.detail ||
-        err?.message ||
-        "Failed to update task. Please try again.";
-      setFormError(typeof msg === "string" ? msg : JSON.stringify(msg));
+    onError: (err: unknown) => {
+      const fallback = err instanceof Error ? err.message : "Failed to update task. Please try again.";
+      setFormError(getErrorMessage(err, fallback));
     },
   });
 
@@ -98,33 +86,6 @@ export default function EditTaskPage() {
 
     updateMutation.mutate();
   };
-
-  if (loadingTask) {
-    return (
-      <DashboardLayout title="Edit Task">
-        <div className="flex items-center gap-2 py-8">
-          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground text-sm">Loading task...</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (taskError || !task) {
-    return (
-      <DashboardLayout title="Edit Task">
-        <div className="space-y-4 py-8">
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertCircle className="w-5 h-5" />
-            <p>Task not found.</p>
-          </div>
-          <Button variant="outline" onClick={() => router.push("/tasks")}>
-            Back to tasks
-          </Button>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout title={`Edit: ${task.title}`}>
@@ -263,4 +224,43 @@ export default function EditTaskPage() {
       </div>
     </DashboardLayout>
   );
+}
+
+export default function EditTaskPage() {
+  const { taskId } = useParams<{ taskId: string }>();
+  const router = useRouter();
+
+  const { data: task, isLoading: loadingTask, isError: taskError } = useQuery({
+    queryKey: ["task", taskId],
+    queryFn: () => taskService.getTaskDetail(taskId),
+  });
+
+  if (loadingTask) {
+    return (
+      <DashboardLayout title="Edit Task">
+        <div className="flex items-center gap-2 py-8">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading task...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (taskError || !task) {
+    return (
+      <DashboardLayout title="Edit Task">
+        <div className="space-y-4 py-8">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="w-5 h-5" />
+            <p>Task not found.</p>
+          </div>
+          <Button variant="outline" onClick={() => router.push("/tasks")}>
+            Back to tasks
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return <EditTaskForm key={task.id} task={task} />;
 }

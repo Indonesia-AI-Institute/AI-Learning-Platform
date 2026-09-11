@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select";
 
 import { useAuth } from "@/hooks/useAuth";
+import { getErrorMessage } from "@/lib/errors";
 
 const RoleEnum = z.enum(["student", "teacher"]);
 
@@ -149,8 +150,7 @@ export function RegisterForm() {
 
             {registerError && (
               <p className="text-sm text-destructive">
-                {(registerError as any)?.response?.data?.detail ??
-                  "Registration failed. Please try again."}
+                {getErrorMessage(registerError, "Registration failed. Please try again.")}
               </p>
             )}
 

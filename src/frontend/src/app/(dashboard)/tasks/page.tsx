@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ClipboardList, Calendar, Search } from "lucide-react";
 import { Task } from "@/types/task.types";
-import { Class } from "@/types/class.types";
 
 interface TaskWithClass extends Task {
   className?: string;
@@ -38,8 +37,6 @@ export default function TasksPage() {
     queryFn: () => classService.getMyClasses(),
     enabled: isTeacher,
   });
-
-  const classes: Class[] = (isTeacher ? myClasses : undefined) ?? [];
 
   const classIds = isTeacher
     ? myClasses?.map((c) => c.id) ?? []

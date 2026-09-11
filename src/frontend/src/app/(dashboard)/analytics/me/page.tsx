@@ -2,8 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { analyticsService } from "@/services/analytics.service";
+import { analyticsService, PromptClassificationRow } from "@/services/analytics.service";
 import { StatCard } from "@/components/dashboard/StatCard";
+import { formatDuration } from "@/components/dashboard/StudentDashboard";
 import { MessageSquare, Zap, Clock, TrendingUp } from "lucide-react";
 import {
   BarChart,
@@ -16,15 +17,9 @@ import {
   Cell,
 } from "recharts";
 
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m`;
-}
+type PromptTypeKey = Exclude<keyof PromptClassificationRow, "student_id" | "total_prompts">;
 
-const PROMPT_TYPES = [
+const PROMPT_TYPES: { key: PromptTypeKey; label: string; color: string }[] = [
   { key: "direct_answer_pct", label: "Direct Answer", color: "#6366f1" },
   { key: "explanation_pct", label: "Explanation", color: "#8b5cf6" },
   { key: "step_by_step_pct", label: "Step-by-Step", color: "#a78bfa" },
@@ -50,7 +45,7 @@ export default function MyAnalyticsPage() {
   const chartData = classification
     ? PROMPT_TYPES.map((pt) => ({
         name: pt.label,
-        value: (classification as any)[pt.key] ?? 0,
+        value: classification[pt.key] ?? 0,
         color: pt.color,
       })).filter((d) => d.value > 0)
     : [];
@@ -89,7 +84,7 @@ export default function MyAnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={90} />
-                  <Tooltip formatter={(v: any) => `${v}%`} />
+                  <Tooltip formatter={(value) => `${value}%`} />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                     {chartData.map((entry, idx) => (
                       <Cell key={idx} fill={entry.color} />
@@ -109,21 +104,11 @@ export default function MyAnalyticsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {[
-                    { key: "direct_answer_pct", label: "Direct Answer"},
-                    { key: "explanation_pct", label: "Explanation"},
-                    { key: "step_by_step_pct", label: "Step-by-Step" },
-                    { key: "example_pct", label: "Example" },
-                    { key: "rewrite_pct", label: "Rewrite" },
-                    { key: "feedback_pct", label: "Feedback" },
-                    { key: "summary_pct", label: "Summary" },
-                    { key: "translation_pct", label: "Translation"},
-                    { key: "brainstorm_pct", label: "Brainstorm"},
-                  ].map((row) => (
+                  {PROMPT_TYPES.map((row) => (
                     <tr key={row.key} className="hover:bg-muted/30">
                       <td className="px-4 py-2.5 font-medium">{row.label}</td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {((classification as any)[row.key] ?? 0).toFixed(1)}%
+                        {(classification[row.key] ?? 0).toFixed(1)}%
                       </td>
                     </tr>
                   ))}

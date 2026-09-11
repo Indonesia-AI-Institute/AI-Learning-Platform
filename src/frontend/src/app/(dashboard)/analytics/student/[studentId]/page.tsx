@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { analyticsService } from "@/services/analytics.service";
+import { analyticsService, PromptClassificationRow } from "@/services/analytics.service";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChatMessage } from "@/types/chat.types";
+import { ChatMessage, ChatSession } from "@/types/chat.types";
 
 type ViewMode = "conversation" | "prompts";
 
@@ -144,7 +144,7 @@ function SessionHistoryViewer({
     : <PromptsView messages={history.messages} />;
 }
 
-function SessionCard({ session }: { session: any }) {
+function SessionCard({ session }: { session: ChatSession }) {
   const [expanded, setExpanded] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("conversation");
 
@@ -199,7 +199,9 @@ function SessionCard({ session }: { session: any }) {
   );
 }
 
-const PROMPT_COLS = [
+type PromptColKey = Exclude<keyof PromptClassificationRow, "student_id" | "total_prompts">;
+
+const PROMPT_COLS: { key: PromptColKey; label: string }[] = [
   { key: "direct_answer_pct", label: "Direct Answer" },
   { key: "explanation_pct", label: "Explanation" },
   { key: "step_by_step_pct", label: "Step-by-Step" },
@@ -275,7 +277,7 @@ export default function StudentAnalyticsDetailPage() {
                       <td className="px-3 py-2.5 text-right font-medium">{row.total_prompts}</td>
                       {PROMPT_COLS.map((col) => (
                         <td key={col.key} className="px-3 py-2.5 text-right">
-                          {((row as any)[col.key] ?? 0).toFixed(1)}%
+                          {(row[col.key] ?? 0).toFixed(1)}%
                         </td>
                       ))}
                     </tr>

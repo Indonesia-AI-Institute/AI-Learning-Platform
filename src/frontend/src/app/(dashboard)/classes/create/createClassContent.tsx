@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { classService } from "@/services/class.service";
 import { courseService } from "@/services/course.service";
+import { getErrorMessage } from "@/lib/errors";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,11 +52,8 @@ export default function CreateClassContent() {
       router.push(`/classes/${cls.id}`);
     },
 
-    onError: (err: any) => {
-      setError(
-        err?.response?.data?.detail ??
-          "Failed to create class."
-      );
+    onError: (err: unknown) => {
+      setError(getErrorMessage(err, "Failed to create class."));
     },
   });
 

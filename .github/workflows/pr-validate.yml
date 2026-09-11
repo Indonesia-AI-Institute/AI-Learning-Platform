@@ -19,15 +19,11 @@ env:
 jobs:
   test-unit:
     name: Test Suite (unit)
-    uses: ./.github/workflows/test-suite.yml
-    with:
-      scope: unit
+    uses: ./.github/workflows/test-suite-unit.yml
 
   test-integration:
     name: Test Suite (integration)
-    uses: ./.github/workflows/test-suite.yml
-    with:
-      scope: integration
+    uses: ./.github/workflows/test-suite-integration.yml
 
   test-build-api:
     name: Test Build API Image

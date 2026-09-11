@@ -30,10 +30,14 @@ docker-compose.prod.yml   prod: pulls prebuilt GHCR images, no bundled db
 .env.be.example            backend runtime config (copy to .env.be)
 .env.fe.example            frontend runtime config (copy to .env.fe)
 .github/workflows/
-  test-suite.yml         shared test jobs (unit and integration
-                             variants per project), called by the three
-                             below, takes a `scope: unit|integration`
-                             input (not triggered directly)
+  test-suite-unit.yml         shared unit-test jobs (backend + frontend),
+                             called by the three below (not triggered
+                             directly)
+  test-suite-integration.yml  shared integration-test jobs, same deal —
+                             a separate file rather than one job gated by
+                             a scope input, so a caller that only needs
+                             unit never shows integration's jobs as
+                             skipped, and vice versa
   test.yml                  every push, any branch except main: unit
                              tests only, fast
   pr-validate.yml            every PR into main: unit + integration, then

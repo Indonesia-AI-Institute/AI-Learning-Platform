@@ -64,17 +64,13 @@ jobs:
     name: Test Suite (post-release, unit)
     needs: [release]
     if: needs.release.outputs.released == 'true'
-    uses: ./.github/workflows/test-suite.yml
-    with:
-      scope: unit
+    uses: ./.github/workflows/test-suite-unit.yml
 
   test-integration:
     name: Test Suite (post-release, integration)
     needs: [release]
     if: needs.release.outputs.released == 'true'
-    uses: ./.github/workflows/test-suite.yml
-    with:
-      scope: integration
+    uses: ./.github/workflows/test-suite-integration.yml
 
   build-api:
     name: Build & Push API Image

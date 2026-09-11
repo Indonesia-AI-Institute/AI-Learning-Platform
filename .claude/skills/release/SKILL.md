@@ -12,15 +12,16 @@ the last tag. This skill is about understanding and verifying that
 pipeline, not about performing a release yourself — there's no local
 command that safely triggers one (see "Don't" below).
 
-Four workflow files divide the CI/release responsibilities — know which
+Five workflow files divide the CI/release responsibilities — know which
 one is relevant to what you're asked about:
 
 | File | Trigger | Does |
 |---|---|---|
-| `test-suite.yml` | `workflow_call` only, never triggered directly | Defines the backend/frontend test jobs once, shared by the three below. Takes a `scope: unit\|integration` input — each is a genuinely separate set of jobs (`integration` needs a real Postgres service container; `unit` doesn't), not one job with a narrower/wider test path |
-| `test.yml` | every push, any branch except `main` | `scope: unit` only — fast feedback, no DB. Excludes `main` deliberately, see `release.yml` below |
-| `pr-validate.yml` | every PR into `main` | `scope: unit` **and** `scope: integration` (two separate calls) -> if both pass, a real (unpushed) Docker build of both images |
-| `release.yml` | push to `main` | PSR -> if a version was cut, re-run `scope: unit` **and** `scope: integration` again -> build+push the final images |
+| `test-suite-unit.yml` | `workflow_call` only, never triggered directly | Backend + frontend unit-test jobs, shared by the three below |
+| `test-suite-integration.yml` | `workflow_call` only, never triggered directly | Backend + frontend integration-test jobs (real Postgres service container). A separate file from unit, not one job gated by a scope input — that would leave every caller showing the other scope's jobs as permanently skipped in the checks UI |
+| `test.yml` | every push, any branch except `main` | Calls `test-suite-unit.yml` only — fast feedback, no DB. Excludes `main` deliberately, see `release.yml` below |
+| `pr-validate.yml` | every PR into `main` | Calls both `test-suite-unit.yml` and `test-suite-integration.yml` -> if both pass, a real (unpushed) Docker build of both images |
+| `release.yml` | push to `main` | PSR -> if a version was cut, calls both test-suite files again -> build+push the final images |
 
 ## How a version gets decided
 
@@ -68,8 +69,9 @@ root — the config path is relative to wherever you invoke it from.
    template as `CHANGELOG.md`) — see `gh release list` / the repo's
    Releases page.
 2. `test-unit` / `test-integration` jobs: only run if `released ==
-   'true'`. Re-run `test-suite.yml` at both scopes — the same tests that
-   already ran on the PR that got merged — as a final sanity gate
+   'true'`. Re-run both `test-suite-unit.yml` and
+   `test-suite-integration.yml` — the same tests that already ran on the
+   PR that got merged — as a final sanity gate
    immediately before building a shippable image. This deliberately
    duplicates the PR-time run rather than trusting it alone, because
    nothing currently enforces that PR check passing before a merge is

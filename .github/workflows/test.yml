@@ -16,6 +16,4 @@ concurrency:
 jobs:
   test:
     name: Test Suite
-    uses: ./.github/workflows/test-suite.yml
-    with:
-      scope: unit
+    uses: ./.github/workflows/test-suite-unit.yml

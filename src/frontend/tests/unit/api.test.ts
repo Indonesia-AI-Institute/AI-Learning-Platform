@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach } from "bun:test";
-import api from "@/lib/api";
+import { describe, it, expect, afterEach, beforeAll } from "bun:test";
+import api, { __resetRedirectGuardForTests } from "@/lib/api";
 
 // axios doesn't expose its registered interceptors publicly; this is the
 // documented shape of its internal handlers array, just enough to invoke
@@ -46,6 +46,17 @@ describe("api 401 redirect guard", () => {
   // isRedirecting to true, or it would pass for the wrong reason (the
   // isRedirecting guard short-circuiting first) instead of exercising the
   // pathname check it's actually meant to verify.
+  //
+  // isRedirecting is also a module singleton shared with every other test
+  // file in the same `bun test` process — without this reset, whichever
+  // other file's tests happen to trigger a 401 first (in a full run
+  // across all 13 files) permanently poisons it before this block even
+  // starts, breaking the ordering assumption above for reasons that have
+  // nothing to do with this file. Reset once, before this block's own
+  // intentional sequencing takes over.
+  beforeAll(() => {
+    __resetRedirectGuardForTests();
+  });
 
   afterEach(() => {
     window.location = originalLocation;
@@ -91,11 +102,11 @@ describe("api 401 redirect guard", () => {
     setLocation("/dashboard");
     window.location.href = "unchanged";
     await expect(reject401()).rejects.toBeDefined();
-    // isRedirecting is already true from the previous test, and this
-    // module has no way to reset it short of a fresh import — which is
-    // exactly the real-world scenario the guard exists for: multiple
-    // concurrent 401 responses (e.g. auth/me + another request) must
-    // only trigger one navigation.
+    // isRedirecting is already true from the previous test — deliberately
+    // not reset here (only __resetRedirectGuardForTests, called once in
+    // beforeAll above, can do that). This is exactly the real-world
+    // scenario the guard exists for: multiple concurrent 401 responses
+    // (e.g. auth/me + another request) must only trigger one navigation.
     expect(window.location.href).toBe("unchanged");
   });
 

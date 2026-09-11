@@ -37,14 +37,12 @@ dependencies = [
     # is a hard ceiling until the auth layer moves off it.
     "bcrypt==4.0.1",
     "cryptography==46.0.5",
-    "python-semantic-release>=9.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest==8.3.3",
     "pytest-asyncio==0.24.0",
-    "python-semantic-release>=9.0.0",
     "ruff==0.9.6"
 ]
 
@@ -114,49 +112,6 @@ build-backend = "setuptools.build_meta"
 [tool.uv]
 package = false
 
-
-# Python Semantic Release — config resolved relative to repo root (see
-# `semantic-release --config` in .github/workflows/container-build.yml)
-[tool.semantic_release]
-tag_format = "v{version}"
-major_on_zero = false
-branch = "main"
-commit_parser = "angular"
-
-version_toml = [
-    "src/backend/pyproject.toml:project.version"
-]
-
-[tool.semantic_release.commit_parser_options]
-minor_tags = ["feat"]
-
-patch_tags = [
-    "fix",
-    "perf",
-    "refactor"
-]
-
-allowed_tags = [
-    "feat",
-    "fix",
-    "perf",
-    "refactor",
-    "docs",
-    "style",
-    "test",
-    "chore",
-    "ci",
-    "build",
-    "revert"
-]
-
-[tool.semantic_release.changelog]
-changelog_file = "CHANGELOG.md"
-
-[tool.semantic_release.remote]
-type = "github"
-token = { env = "GH_TOKEN" }
-
-[tool.semantic_release.publish]
-dist_glob_patterns = []
-upload_to_vcs_release = true
+# Semantic-release config lives at the repo root (../../pyproject.toml),
+# not here — it versions the whole monorepo, not just this project. See
+# CLAUDE.md's "Commit messages drive versioning" rule.

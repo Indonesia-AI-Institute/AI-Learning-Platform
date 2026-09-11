@@ -1,0 +1,116 @@
+name: Test Suite
+
+# Reusable workflow, called by test.yml, pr-validate.yml, and release.yml
+# with a scope input. unit and integration are separate jobs (not one job
+# with a narrower/wider test path) because a service container can't be
+# made conditional — integration needs Postgres, unit doesn't.
+
+on:
+  workflow_call:
+    inputs:
+      scope:
+        description: "'unit' = tests/unit, no DB. 'integration' = tests/integration, needs Postgres."
+        type: string
+        required: true
+
+jobs:
+  test-backend-unit:
+    name: Backend Tests (pytest, unit)
+    if: inputs.scope == 'unit'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.12.12" # pinned, matches src/backend/Dockerfile
+
+      - name: Sync backend dependencies
+        run: uv sync --project src/backend --extra dev
+
+      - name: Run pytest
+        run: PYTHONPATH="$(pwd)/src" uv run --project src/backend pytest src/backend/tests/unit -q
+
+  test-backend-integration:
+    name: Backend Tests (pytest, integration)
+    if: inputs.scope == 'integration'
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.12.12" # pinned, matches src/backend/Dockerfile
+
+      - name: Sync backend dependencies
+        run: uv sync --project src/backend --extra dev
+
+      - name: Run pytest
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5433/test
+        run: PYTHONPATH="$(pwd)/src" uv run --project src/backend pytest src/backend/tests/integration -q
+
+  test-frontend-unit:
+    name: Frontend Tests (bun test, unit)
+    if: inputs.scope == 'unit'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2" # pinned, matches src/frontend/Dockerfile
+
+      - name: Install frontend dependencies
+        working-directory: src/frontend
+        run: bun install --frozen-lockfile
+
+      - name: Run bun test
+        working-directory: src/frontend
+        run: bun run test:unit
+
+  test-frontend-integration:
+    name: Frontend Tests (bun test, integration)
+    if: inputs.scope == 'integration'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2" # pinned, matches src/frontend/Dockerfile
+
+      - name: Install frontend dependencies
+        working-directory: src/frontend
+        run: bun install --frozen-lockfile
+
+      - name: Run bun test
+        working-directory: src/frontend
+        run: bun run test:integration

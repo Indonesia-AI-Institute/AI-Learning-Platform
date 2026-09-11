@@ -1,0 +1,21 @@
+name: Test
+
+# Fast feedback on every push to a feature branch: unit tests only, no
+# Postgres. Excludes main — see release.yml, which re-runs both scopes
+# there instead.
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test Suite
+    uses: ./.github/workflows/test-suite.yml
+    with:
+      scope: unit

@@ -1,6 +1,44 @@
 # CHANGELOG
 
 
+## v1.2.1 (2026-09-11)
+
+### Refactoring
+
+- **ci**: Rename test-suite-* files, add image refs to GitHub Release notes
+  ([`1fb13c6`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/1fb13c649ee8e64eb54965dcfab3f4dff691bb89))
+
+Renames test-suite-unit.yml -> test-unit.yml and test-suite-integration.yml -> test-integration.yml
+  (git mv, history preserved) for brevity, updating every reference across the workflow files,
+  CLAUDE.md, and the release skill.
+
+Adds a new update-release-notes job to release.yml, running only after both build-api and
+  build-frontend push successfully: appends a "## Images" section with the exact ghcr.io
+  image:version references to the GitHub Release body semantic-release already created. The release
+  exists before the images do (PSR creates it, then the build jobs run), so this is a follow-up `gh
+  release edit` rather than part of the original creation - it preserves PSR's changelog-derived
+  notes and appends to them, not replaces them.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- **ci**: Split test-suite.yml into unit/integration files, no more skipped jobs
+  ([`5b17cc9`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/5b17cc9f3216998ed70108a5af06d5570eb30b5d))
+
+test-suite.yml's scope input meant every call showed 2 of its 4 jobs as permanently skipped in the
+  checks UI (whichever scope wasn't requested, gated via `if: inputs.scope == '...'`) — noisy, and
+  not actually avoidable while all 4 job definitions lived in one reusable workflow.
+
+Splits it into test-suite-unit.yml (backend+frontend unit jobs) and test-suite-integration.yml
+  (backend+frontend integration jobs, the Postgres service container). Each caller (test.yml,
+  pr-validate.yml, release.yml) now calls the specific file(s) it needs directly, with no scope
+  input and no `if:` gating — every job a caller declares actually runs, so nothing shows as
+  skipped.
+
+Updates CLAUDE.md and the release skill to match.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+
 ## v1.2.0 (2026-09-11)
 
 ### Bug Fixes

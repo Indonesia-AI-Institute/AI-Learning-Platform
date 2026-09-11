@@ -97,8 +97,9 @@ src/backend/    FastAPI + SQLAlchemy + PostgreSQL — see src/backend/README.md
 src/frontend/   Next.js 16 + React 19 — see src/frontend/README.md
 docker-compose.yml         dev: builds both images locally, bundles a local db
 docker-compose.prod.yml    prod: pulls prebuilt GHCR images
-deploy.sh                   pulls the latest images and restarts services (run by CI on deploy)
-.github/workflows/         CI (build + push on merge to main) and CD (deploy)
+.github/workflows/         CI only: build + push to GHCR on merge to main.
+                            No CD — see "Docker: With the Repository" below
+                            for the manual deploy steps.
 ```
 
 `src/backend/` and `src/frontend/` are each self-contained projects — own

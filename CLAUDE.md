@@ -27,11 +27,12 @@ src/backend/    FastAPI + SQLAlchemy + PostgreSQL — see its own CLAUDE.md
 src/frontend/   Next.js 16 + React 19 — see its own CLAUDE.md
 docker-compose.yml        dev: builds both images locally, bundles a local db
 docker-compose.prod.yml   prod: pulls prebuilt GHCR images, no bundled db
-deploy.sh                 pulls the latest images and restarts services on
-                           the production host — run by .github/workflows/deploy.yml
 .env.be.example            backend runtime config (copy to .env.be)
 .env.fe.example            frontend runtime config (copy to .env.fe)
-.github/workflows/         CI: build+push on merge to main; CD: deploy on successful build
+.github/workflows/         CI only: build+push to GHCR on merge to main.
+                           No CD — deployment is manual, see the root README's
+                           "Docker: With the Repository" section
+                           (docker compose -f docker-compose.prod.yml pull/up).
 ```
 
 Both `src/backend/` and `src/frontend/` are self-contained projects (own
@@ -67,17 +68,7 @@ host port mapping for the API at all (not internet-exposed directly in
 production). These two files are allowed to diverge on purpose, this
 isn't drift to "fix."
 
-**3. `deploy.sh` lives at the repo root, not in `.github/workflows/`.**
-`.github/workflows/deploy.yml`'s SSH step does `cd $PROD_DEPLOY_PATH &&
-git pull origin main && chmod +x deploy.sh && ./deploy.sh <tag>` — it
-resolves `deploy.sh` relative to the repo root on the production host,
-not relative to the workflow file's own path. It was found living in
-`.github/workflows/deploy.sh` at one point, which would have made every
-deploy fail with "no such file" on a real production host, silently,
-since nothing in CI actually exercises the SSH deploy step. If you touch
-deployment, verify this file is still at the root.
-
-**4. There is no CI test gate.** `.github/workflows/container-build.yml`
+**3. There is no CI test gate.** `.github/workflows/container-build.yml`
 builds and pushes images on every merge to `main`; it does not run
 `pytest` or `bun test` at any point. Both suites exist and are
 comprehensive (see each project's own `CLAUDE.md`/`test` skill), but
@@ -86,7 +77,7 @@ Claude, when asked) running them locally is the only gate today. Don't
 assume a green CI run means the tests passed; it means the build
 succeeded, which is a different, weaker claim.
 
-**5. Commit messages drive versioning.** `python-semantic-release`
+**4. Commit messages drive versioning.** `python-semantic-release`
 (configured in `src/backend/pyproject.toml`, but it versions the whole
 repo, not just the backend) reads Angular/conventional-commit-style
 messages (`feat|fix|perf|refactor|docs|style|test|chore|ci|build|revert: ...`)
@@ -124,11 +115,20 @@ use this repo's own `full-stack-check` skill.
 These span both halves of the stack and were evaluated, not missed —
 don't "fix" them without a product decision:
 
-- **No CI test gate** (Critical Rule 4) — tests exist and are
+- **No CI test gate** (Critical Rule 3) — tests exist and are
   comprehensive but aren't wired into `container-build.yml`. Adding that
   is a real, scoped piece of work (a Postgres service container for the
   backend job, a `bun test` step for the frontend job) that hasn't been
   prioritized yet.
+- **No automated deployment.** `.github/workflows/deploy.yml` (SSH to a
+  production host, pull the latest images, restart via `deploy.sh`) was
+  removed deliberately — CI now only builds and pushes images to GHCR on
+  a version bump; nothing deploys them anywhere automatically. Pulling
+  and restarting on a target host is a manual `docker compose -f
+  docker-compose.prod.yml pull && up -d` (see the root README). If
+  automated CD is wanted again, it needs a real decision on target host(s)
+  and secrets, not just restoring the old workflow — the old script/SSH
+  action are gone, not just disabled.
 - **Teacher self-registration has no invite/approval gate.** `RegisterForm`
   on the frontend lets any visitor pick `role: teacher`, and the backend
   accepts it at face value (correctly ownership-scoped once created — see
@@ -154,7 +154,8 @@ don't "fix" them without a product decision:
 ## Claude Code project tooling
 
 - **This file** — repo-wide architecture, cross-cutting rules, and the
-  deployment/versioning pipeline.
+  versioning pipeline (there is no automated deployment — see "Known,
+  deliberately deferred gaps").
 - **`.claude/skills/`** — full-stack orchestration skills (bringing up
   the whole stack, checking both projects at once, understanding the
   release pipeline). Skills for scaffolding new code inside one project

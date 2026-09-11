@@ -30,22 +30,27 @@ docker-compose.prod.yml   prod: pulls prebuilt GHCR images, no bundled db
 .env.be.example            backend runtime config (copy to .env.be)
 .env.fe.example            frontend runtime config (copy to .env.fe)
 .github/workflows/
-  test-suite.yml         shared test jobs (unit and integration
-                             variants per project), called by the three
-                             below, takes a `scope: unit|integration`
-                             input (not triggered directly)
-  test.yml                  every push, any branch except main: unit
-                             tests only, fast
-  pr-validate.yml            every PR into main: unit + integration, then
-                             (only if both pass) a real Docker build of
-                             both images (no push to GHCR)
-  release.yml                push to main: semantic-release (tags, pushes,
-                             creates a GitHub Release) -> if a version was
-                             cut, re-run unit + integration -> build+push
-                             the final images. No CD — deployment is
-                             manual, see the root README's "Docker: With
-                             the Repository" section (docker compose -f
-                             docker-compose.prod.yml pull/up).
+  test-unit.yml          shared unit-test jobs (backend + frontend),
+                          called by the three below (not triggered
+                          directly)
+  test-integration.yml   shared integration-test jobs, same deal — a
+                          separate file rather than one job gated by a
+                          scope input, so a caller that only needs unit
+                          never shows integration's jobs as skipped,
+                          and vice versa
+  test.yml               every push, any branch except main: unit
+                          tests only, fast
+  pr-validate.yml        every PR into main: unit + integration, then
+                          (only if both pass) a real Docker build of
+                          both images (no push to GHCR)
+  release.yml            push to main: semantic-release (tags, pushes,
+                          creates a GitHub Release) -> if a version was
+                          cut, re-run unit + integration -> build+push
+                          the final images -> append their ghcr.io
+                          references to the Release notes. No CD —
+                          deployment is manual, see the root README's
+                          "Docker: With the Repository" section (docker
+                          compose -f docker-compose.prod.yml pull/up).
 ```
 
 Both `src/backend/` and `src/frontend/` are self-contained projects (own

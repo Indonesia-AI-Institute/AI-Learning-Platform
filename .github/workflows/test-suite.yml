@@ -1,24 +1,17 @@
-name: Reusable Test Suite
+name: Test Suite
 
-# Shared by test.yml (every branch push, scope=unit), pr-validate.yml
-# (pull requests, scope=full), and release.yml (re-run right before
-# building the final image, scope=full). Kept as one reusable workflow so
-# the backend/frontend test invocation is defined exactly once — see each
-# project's own `test` skill for the equivalent local commands this
-# mirrors.
-#
-# scope=unit and scope=full are genuinely different jobs, not the same
-# job with a narrower test path — unit scope skips the Postgres service
-# container entirely (tests/unit/ needs no DB at all), which is the whole
-# point of it being the fast, cheap check that runs on every push.
+# Reusable workflow, called by test.yml, pr-validate.yml, and release.yml
+# with a scope input. unit and integration are separate jobs (not one job
+# with a narrower/wider test path) because a service container can't be
+# made conditional — integration needs Postgres, unit doesn't.
 
 on:
   workflow_call:
     inputs:
       scope:
-        description: "'unit' = fast, no DB. 'full' = unit + integration (needs Postgres)."
+        description: "'unit' = tests/unit, no DB. 'integration' = tests/integration, needs Postgres."
         type: string
-        default: "full"
+        required: true
 
 jobs:
   test-backend-unit:
@@ -33,24 +26,19 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.12.12" # matches src/backend/Dockerfile's pinned uv
+          version: "0.12.12" # pinned, matches src/backend/Dockerfile
 
       - name: Sync backend dependencies
         run: uv sync --project src/backend --extra dev
 
-      - name: Run pytest (unit only, no DB needed)
-        run: |
-          PYTHONPATH="$(pwd)/src" uv run --project src/backend pytest src/backend/tests/unit -q
+      - name: Run pytest
+        run: PYTHONPATH="$(pwd)/src" uv run --project src/backend pytest src/backend/tests/unit -q
 
-  test-backend-full:
-    name: Backend Tests (pytest, full)
-    if: inputs.scope == 'full'
+  test-backend-integration:
+    name: Backend Tests (pytest, integration)
+    if: inputs.scope == 'integration'
     runs-on: ubuntu-latest
 
-    # Integration tests need a real Postgres — sqlalchemy.dialects.postgresql.UUID
-    # can't run on SQLite. Port/credentials match this repo's disposable-container
-    # convention (see src/backend/.claude/skills/test/SKILL.md) so DATABASE_URL
-    # below is the same default the code already expects.
     services:
       postgres:
         image: postgres:15-alpine
@@ -73,16 +61,15 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.12.12" # matches src/backend/Dockerfile's pinned uv
+          version: "0.12.12" # pinned, matches src/backend/Dockerfile
 
       - name: Sync backend dependencies
         run: uv sync --project src/backend --extra dev
 
-      - name: Run pytest (unit + integration)
+      - name: Run pytest
         env:
           DATABASE_URL: postgresql+asyncpg://test:test@localhost:5433/test
-        run: |
-          PYTHONPATH="$(pwd)/src" uv run --project src/backend pytest src/backend/tests -q
+        run: PYTHONPATH="$(pwd)/src" uv run --project src/backend pytest src/backend/tests/integration -q
 
   test-frontend-unit:
     name: Frontend Tests (bun test, unit)
@@ -96,19 +83,19 @@ jobs:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.2" # matches src/frontend/Dockerfile's pinned bun
+          bun-version: "1.4.2" # pinned, matches src/frontend/Dockerfile
 
       - name: Install frontend dependencies
         working-directory: src/frontend
         run: bun install --frozen-lockfile
 
-      - name: Run bun test (unit only)
+      - name: Run bun test
         working-directory: src/frontend
         run: bun run test:unit
 
-  test-frontend-full:
-    name: Frontend Tests (bun test, full)
-    if: inputs.scope == 'full'
+  test-frontend-integration:
+    name: Frontend Tests (bun test, integration)
+    if: inputs.scope == 'integration'
     runs-on: ubuntu-latest
 
     steps:
@@ -118,12 +105,12 @@ jobs:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.2" # matches src/frontend/Dockerfile's pinned bun
+          bun-version: "1.4.2" # pinned, matches src/frontend/Dockerfile
 
       - name: Install frontend dependencies
         working-directory: src/frontend
         run: bun install --frozen-lockfile
 
-      - name: Run bun test (everything)
+      - name: Run bun test
         working-directory: src/frontend
-        run: bun test
+        run: bun run test:integration

@@ -98,9 +98,9 @@ src/frontend/   Next.js 16 + React 19 — see src/frontend/README.md
 docker-compose.yml         dev: builds both images locally, bundles a local db
 docker-compose.prod.yml    prod: pulls prebuilt GHCR images
 .github/workflows/
-  test.yml                  every push, any branch: unit tests only, fast
-  pr-validate.yml            every PR into main: full suite, then (if it passes) build-only Docker validation
-  release.yml                push to main: version, re-run full suite, then build + push to GHCR
+  test.yml                  every push, any branch except main: unit tests only, fast
+  pr-validate.yml            every PR into main: unit + integration, then (if both pass) a real Docker build (no push)
+  release.yml                push to main: version + GitHub Release, re-run unit + integration, then build + push to GHCR
                             No CD — see "Docker: With the Repository" below
                             for the manual deploy steps.
 ```
@@ -433,12 +433,12 @@ bun run lint
 bun run build
 ```
 
-CI runs both suites automatically — unit tests only on every push
-(`test.yml`), the full suite (unit + integration) plus a build validation
-on every PR into `main` (`pr-validate.yml`) — but no branch protection
-rule currently requires those checks to pass before a merge is allowed,
-and none can be configured yet on this repo's current GitHub plan (see
-the root `CLAUDE.md`'s Critical Rules). A local run is still the fastest
+CI runs both suites automatically — unit tests only on every push to a
+feature branch (`test.yml`), both unit and integration plus a real Docker
+build on every PR into `main` (`pr-validate.yml`) — but no branch
+protection rule currently requires those checks to pass before a merge is
+allowed, and none can be configured yet on this repo's current GitHub
+plan (see the root `CLAUDE.md`'s Critical Rules). A local run is still the fastest
 signal; CI is the backstop, not yet an enforced gate.
 
 ---

@@ -30,15 +30,18 @@ docker-compose.prod.yml   prod: pulls prebuilt GHCR images, no bundled db
 .env.be.example            backend runtime config (copy to .env.be)
 .env.fe.example            frontend runtime config (copy to .env.fe)
 .github/workflows/
-  reusable-test.yml         shared test jobs (unit and full variants per
-                             project), called by the three below, takes a
-                             `scope: unit|full` input (not triggered directly)
-  test.yml                  every push, any branch: unit tests only, fast
-  pr-validate.yml            every PR into main: full suite, then (only
-                             if it passes) build-only Docker validation
-                             (no push)
-  release.yml                push to main: semantic-release -> if a version
-                             was cut, re-run the full suite -> build+push
+  test-suite.yml         shared test jobs (unit and integration
+                             variants per project), called by the three
+                             below, takes a `scope: unit|integration`
+                             input (not triggered directly)
+  test.yml                  every push, any branch except main: unit
+                             tests only, fast
+  pr-validate.yml            every PR into main: unit + integration, then
+                             (only if both pass) a real Docker build of
+                             both images (no push to GHCR)
+  release.yml                push to main: semantic-release (tags, pushes,
+                             creates a GitHub Release) -> if a version was
+                             cut, re-run unit + integration -> build+push
                              the final images. No CD — deployment is
                              manual, see the root README's "Docker: With
                              the Repository" section (docker compose -f
@@ -80,11 +83,15 @@ isn't drift to "fix."
 
 **3. CI runs tests on every push and PR, but nothing currently blocks a
 merge on a red check — and can't yet.** `test.yml` runs both projects'
-*unit* suites on every push to any branch (fast, no Postgres);
-`pr-validate.yml` runs the *full* suite (unit + integration) plus a
-build-only Docker validation on every PR into `main`; `release.yml` runs
-the full suite a third time immediately before building the final image.
-But requiring those checks to pass before merging needs GitHub branch
+*unit* suites on every push to a feature branch (fast, no Postgres);
+`pr-validate.yml` runs *both* unit and integration on every PR into
+`main`, then a real (unpushed) Docker build of both images if those pass;
+`release.yml` re-runs *both unit and integration again* immediately
+before building the final image — this duplicates the PR-time run, but
+deliberately: since nothing enforces that PR check passing before a
+merge is allowed (see below), this is the actual last gate before a real,
+tagged image ships, not a redundant formality. Requiring those checks to
+pass before merging needs GitHub branch
 protection or repository rulesets, and **both are unavailable on this
 repo right now** — it's private, and both features require GitHub
 Pro/Team for a private repo (confirmed via `gh api .../branches/main/protection`
@@ -147,9 +154,9 @@ don't "fix" them without a product decision:
   private repo, and this repo is private on a plan without either. Making
   the repo public or upgrading the org's plan is a real decision for
   whoever owns that call, not something to do unilaterally — once either
-  happens, the required checks would be `pr-validate.yml`'s `test`
-  (`Backend Tests (pytest, full)` / `Frontend Tests (bun test, full)`),
-  `build-api`, and `build-frontend`.
+  happens, the required checks would be `pr-validate.yml`'s `test-unit`
+  and `test-integration` (each surfacing a backend and a frontend check),
+  plus `test-build-api` and `test-build-frontend`.
 - **No automated deployment.** `.github/workflows/deploy.yml` (SSH to a
   production host, pull the latest images, restart via `deploy.sh`) was
   removed deliberately — CI now only builds and pushes images to GHCR on

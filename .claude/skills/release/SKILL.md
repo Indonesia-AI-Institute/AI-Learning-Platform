@@ -17,10 +17,10 @@ one is relevant to what you're asked about:
 
 | File | Trigger | Does |
 |---|---|---|
-| `reusable-test.yml` | `workflow_call` only, never triggered directly | Defines the backend/frontend test jobs once, shared by the three below. Takes a `scope: unit\|full` input — `unit` skips Postgres and the integration suite entirely (separate jobs, not just a narrower test path) |
-| `test.yml` | every push, any branch | `scope: unit` — fast feedback, no DB |
-| `pr-validate.yml` | every PR into `main` | `scope: full` (unit + integration) -> if that passes, a build-only Docker validation (no push) |
-| `release.yml` | push to `main` | PSR -> if a version was cut, re-run `scope: full` -> build+push the final images |
+| `test-suite.yml` | `workflow_call` only, never triggered directly | Defines the backend/frontend test jobs once, shared by the three below. Takes a `scope: unit\|integration` input — each is a genuinely separate set of jobs (`integration` needs a real Postgres service container; `unit` doesn't), not one job with a narrower/wider test path |
+| `test.yml` | every push, any branch except `main` | `scope: unit` only — fast feedback, no DB. Excludes `main` deliberately, see `release.yml` below |
+| `pr-validate.yml` | every PR into `main` | `scope: unit` **and** `scope: integration` (two separate calls) -> if both pass, a real (unpushed) Docker build of both images |
+| `release.yml` | push to `main` | PSR -> if a version was cut, re-run `scope: unit` **and** `scope: integration` again -> build+push the final images |
 
 ## How a version gets decided
 
@@ -41,11 +41,12 @@ it lives at the root specifically so it isn't misread as backend-only):
 
 If every commit since the last tag is a no-bump type, PSR publishes
 nothing — the `release` job's `released` output is `false`, and the
-`test`/`build-api`/`build-frontend` jobs after it (which all depend on
-that output) skip entirely, whether or not the PR itself was
-substantial. A PR that should ship a real version needs at least one
-`feat`/`fix`/`perf`/`refactor` commit in it — a title alone doesn't
-count, since PSR reads the actual commit history, not the PR title.
+`test-unit`/`test-integration`/`build-api`/`build-frontend` jobs in
+`release.yml` after it (which all depend on that output) skip entirely,
+whether or not the PR itself was substantial. A PR that should ship a
+real version needs at least one `feat`/`fix`/`perf`/`refactor` commit in
+it — a title alone doesn't count, since PSR reads the actual commit
+history, not the PR title.
 
 ## Checking what the next version would be (safe, read-only)
 
@@ -62,14 +63,20 @@ root — the config path is relative to wherever you invoke it from.
 ## What happens after a version is published (informational — this is CI's job)
 
 1. `release` job (`release.yml`): PSR tags `main`, updates
-   `CHANGELOG.md`, pushes both back to the repo.
-2. `test` job: only runs if `released == 'true'`. Re-runs
-   `reusable-test.yml` at `scope: full` — the same full suite that
+   `CHANGELOG.md`, pushes both back to the repo, and creates a GitHub
+   Release for the new tag (release notes come from the same changelog
+   template as `CHANGELOG.md`) — see `gh release list` / the repo's
+   Releases page.
+2. `test-unit` / `test-integration` jobs: only run if `released ==
+   'true'`. Re-run `test-suite.yml` at both scopes — the same tests that
    already ran on the PR that got merged — as a final sanity gate
-   immediately before building a shippable image, not a substitute for
-   the PR-time run.
-3. `build-api` / `build-frontend`: only run if the post-release `test`
-   job succeeded. Build and push
+   immediately before building a shippable image. This deliberately
+   duplicates the PR-time run rather than trusting it alone, because
+   nothing currently enforces that PR check passing before a merge is
+   allowed (see "Don't" below) — this is the actual last gate before a
+   real, tagged image ships.
+3. `build-api` / `build-frontend`: only run if both post-release test
+   jobs succeeded. Build and push
    `ghcr.io/indonesia-ai-institute/ai-learning-platform-{api,frontend}`,
    tagged `latest`, the exact version, and `{major}.{minor}` / `{major}`
    convenience tags.

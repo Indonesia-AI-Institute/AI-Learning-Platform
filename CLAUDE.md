@@ -49,8 +49,17 @@ docker-compose.prod.yml   prod: pulls prebuilt GHCR images, no bundled db
                           the final images -> append their ghcr.io
                           references to the Release notes. No CD —
                           deployment is manual, see the root README's
-                          "Docker: With the Repository" section (docker
-                          compose -f docker-compose.prod.yml pull/up).
+                          "Quick Start" section (docker compose -f
+                          docker-compose.prod.yml pull/up).
+  release.yml (config)  .github/release.yml — categorizes PRs by label
+                          for GitHub's own "Generate release notes"
+                          button; unrelated to the workflow above and
+                          not exercised by the automated pipeline, which
+                          reads commit messages instead (see Critical
+                          Rule 4)
+templates/                semantic-release's Jinja2 templates for this
+                          repo's CHANGELOG.md and GitHub Release notes —
+                          see Critical Rule 4
 ```
 
 Both `src/backend/` and `src/frontend/` are self-contained projects (own
@@ -118,6 +127,24 @@ it just doesn't contribute to the version bump — but sloppy messages
 make the generated changelog useless, so follow the convention for
 anything landing on `main`.
 
+The GitHub Release body it creates for each tag is rendered from
+`templates/.release_notes.md.j2`, not PSR's built-in default — that file
+adds AI Learning Platform branding (a header, a "Getting started" link)
+around the *same* unmodified section-grouping logic PSR ships (Features/
+Bug Fixes/Breaking Changes, via `templates/.components/`). `templates/CHANGELOG.md.j2`
+and the rest of `templates/.components/` are byte-for-byte copies of
+PSR's own default "angular/md" style, kept only so `.release_notes.md.j2`'s
+`{% include %}`s resolve — semantic-release uses a custom template
+directory as an all-or-nothing unit, so once *any* other template lives
+in `templates/`, `CHANGELOG.md.j2` must be present too or `CHANGELOG.md`
+would stop being generated on release. Don't hand-edit the `.components/`
+copies without a reason; if PSR's own default templates change in a
+future version bump, re-copy them from the installed package rather than
+patching by hand, so this stays a diffable vendor copy. This is a
+separate mechanism from `.github/release.yml`, which only affects
+GitHub's own "Generate release notes" button — a manual/off-pipeline
+path this repo's automated release flow doesn't use (see Repo layout).
+
 ## Local development
 
 See the root [`README.md`](README.md) for full setup instructions (Docker
@@ -125,7 +152,7 @@ and non-Docker paths, environment variables, LLM provider configuration,
 troubleshooting). Short version:
 
 ```bash
-cp .env.be.example .env.be && cp .env.fe.example .env.fe && cp .env.example .env
+cp .env.be.example .env.be && cp .env.fe.example .env.fe
 # fill in .env.be / .env.fe — SECRET_KEY, POSTGRES_*, an LLM provider key
 docker compose up -d --build
 ```

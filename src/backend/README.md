@@ -2,9 +2,17 @@
 
 FastAPI backend for the AI Learning Platform: course/class/task management
 for teachers, session-based AI tutoring chat for students, and prompt
-analytics. Async SQLAlchemy + PostgreSQL, JWT auth, Alembic migrations, and
-a pluggable multi-provider LLM layer (OpenAI, OpenRouter, Gemini, Anthropic,
-or any OpenAI-compatible custom endpoint).
+analytics that classifies *how* students are using that chat — not just
+that they used it. Async SQLAlchemy + PostgreSQL, JWT auth, Alembic
+migrations, and a pluggable multi-provider LLM layer (OpenAI, OpenRouter,
+Gemini, Anthropic, or any OpenAI-compatible custom endpoint).
+
+The two things worth understanding before touching this codebase, both
+covered in detail below: **the agent layer** (`agents/`, `llm/`) that
+actually talks to an LLM on a student's behalf, and **the background
+classifier** that tags every student message with nine behavior signals in
+parallel with the chat response, at zero added latency — see
+[Tutoring agents & prompt analytics](#tutoring-agents--prompt-analytics).
 
 For full-stack setup (frontend + backend together, Docker Compose, one-shot
 deployment), see the [repo root README](../../README.md). This file covers
@@ -24,10 +32,45 @@ working in the backend on its own.
 | Package manager | [uv](https://docs.astral.sh/uv/) |
 | Tests | pytest + pytest-asyncio + httpx |
 
+## Architecture
+
+A request flows through four layers, each with one job:
+
+```
+api/v1/*_routes.py    HTTP layer — parse the request, call one service
+                       method, map ValueError -> 404 / PermissionError -> 403
+       │
+       ▼
+services/*_service.py  Business logic + authorization (every query that
+                       returns another user's data is scoped by ownership —
+                       joined through to Course.teacher_id, never role alone)
+       │
+       ▼
+repositories/*.py      Thin SQLAlchemy query layer — BaseRepository[T]
+                       generic CRUD + per-model custom queries
+       │
+       ▼
+models/*.py            SQLAlchemy ORM models (postgresql.UUID primary keys)
+```
+
+Chat requests take a side path through the tutoring "brain" instead of
+straight to the database:
+
+```
+chat_routes.py -> conversation_service.py -> agents/ (DirectTutor /
+SocraticTutor) -> llm/ (provider abstraction) -> the configured LLM API
+```
+
+`guardrails/` sits in front of that path as a defense-in-depth keyword
+filter, not a real moderation guarantee. See
+[Tutoring agents & prompt analytics](#tutoring-agents--prompt-analytics) for
+how the chat response and the background classifier both come out of this
+same path without one blocking the other.
+
 ## Project layout
 
 ```
-agents/       agent orchestration (DirectTutor, SocraticTutor) + prompt YAML configs
+agents/       agent orchestration (DirectTutor, SocraticTutor, PromptClassifier) + prompt YAML configs
 api/          route registration, dependencies (auth/role guards), one *_routes.py per resource
 auth/         JWT + password hashing primitives
 core/         Settings (env config)
@@ -44,10 +87,84 @@ alembic/      migrations
 tests/        pytest suite — unit/ (no DB) and integration/ (real Postgres)
 ```
 
-See [`CLAUDE.md`](./CLAUDE.md) for the request-flow architecture, the
+See [`CLAUDE.md`](./CLAUDE.md) for the full request-flow architecture, the
 established patterns to follow for new code, and a list of hard rules that
 exist because breaking them already caused real bugs — worth a read before
 making non-trivial changes here.
+
+## Tutoring agents & prompt analytics
+
+This is the part of the backend that's specific to this product, as opposed
+to CRUD-over-Postgres plumbing — worth understanding on its own.
+
+**Agents.** `agents/registry/agent_registry.py` maps an `agent_id` to a
+`BaseAgent` subclass plus a YAML config (`agents/prompts/*.yaml`) of system
+prompts and model params. Two are registered today:
+
+| Agent | Mode | Behavior |
+|---|---|---|
+| `direct_tutor` (`agents/services/direct_agent.py`) | single-pass | Answers the question directly in one LLM call. **Currently the only agent wired to a live chat route.** |
+| `socratic_tutor` (`agents/services/socratic_agent.py`) | multi-turn (up to 3 iterations) | Responds with a guiding question or a hint — never the answer — then runs a reflection pass that scores the student's understanding (LOW/MEDIUM/HIGH) and decides `QUESTION`, `HINT`, or `FINALIZE`. Only once it finalizes does it actually explain. Exists in code and has its own tests, but no route currently routes a real chat session to it. |
+
+Every agent gets its system prompt injected exactly once via
+`BaseAgent._inject_system_prompt` — this lives on the base class specifically
+so a new subclass can't accidentally skip it (see `CLAUDE.md` Critical Rule
+3 for the incident that made this a hard rule).
+
+**The prompt classifier.** `agents/services/prompt_classifier_agent.py`
+runs as a *separate* LLM call, entirely decoupled from the chat response.
+Every student message gets classified into nine independent boolean
+signals (a message can match more than one, all default to `false` if
+classification fails):
+
+| Signal | Detects |
+|---|---|
+| `direct_answer` | Wants the answer outright, no explanation ("Give me the answer") |
+| `explanation` | Wants a concept explained ("Why is X?") |
+| `step_by_step` | Wants a walkthrough ("How do I solve this?") |
+| `example` | Wants an illustration ("Give me an example") |
+| `rewrite` | Wants their own work rewritten/improved |
+| `feedback` | Wants their attempt checked ("Is this correct?") |
+| `summary` | Wants a summary/TL;DR |
+| `translation` | Wants something translated |
+| `brainstorm` | Wants ideas/options |
+
+These map straight onto the `is_*` boolean columns in
+`models/prompt_classification.py` and drive the teacher-facing dashboards
+described in the [repo root README](../../README.md#-the-teacher-dashboard).
+
+**Zero added latency, concretely.** `services/conversation_service.py`
+never awaits the classifier before returning a response to the student:
+
+- Non-streaming chat (`_classify_and_save` alongside the main reply) uses
+  `asyncio.gather(...)` — the LLM reply and the classification call run
+  concurrently, and the route only waits on the reply.
+- Streaming chat uses `asyncio.create_task(...)` — the classification is
+  fired off and forgotten; tokens stream to the client immediately, and the
+  classification result is saved whenever it finishes, independent of the
+  response stream.
+
+A slow or failed classification call has no effect on how fast a student
+sees their answer — it can only ever affect what shows up later on a
+teacher's dashboard.
+
+## LLM providers
+
+`DEFAULT_LLM_PROVIDER` selects the provider at startup; `llm/providers/`
+implements each one behind a common interface
+(`llm/base/llm_providers.py`), so the rest of the codebase never branches on
+which one is active.
+
+| Provider | Env var to set | Notes |
+|---|---|---|
+| `openai` | `OPENAI_API_KEY` | Default `OPENAI_API_BASE` works as-is; override for an Azure/self-hosted OpenAI-compatible gateway |
+| `openrouter` | `OPENROUTER_API_KEY` | `OPENROUTER_PROVIDER_ORDER` picks the underlying infra (e.g. `DeepInfra,SiliconFlow`); `OPENROUTER_ALLOW_FALLBACKS`/`OPENROUTER_REQUIRE_PROVIDER` control fallback behavior. Recommended for development — free models available |
+| `gemini` | `GEMINI_API_KEY` | Talks to Gemini's OpenAI-compatible endpoint (`GEMINI_API_BASE`) |
+| `anthropic` | `ANTHROPIC_API_KEY` | — |
+| `custom` | `CUSTOM_LLM_API_KEY`, `CUSTOM_LLM_BASE_URL` | Any OpenAI-compatible endpoint — this is how a self-hosted model (e.g. Ollama at `http://localhost:11434/v1`) plugs in |
+
+`DEFAULT_LLM_MODEL`, `DEFAULT_TEMPERATURE`, `DEFAULT_MAX_TOKENS`, and
+`DEFAULT_TIMEOUT` apply regardless of which provider is selected.
 
 ## Getting started
 
@@ -81,15 +198,58 @@ The API is now at `http://localhost:8000`, interactive docs at
 `ENVIRONMENT=production`).
 
 **Or run it via Docker** instead of installing anything locally — see the
-[repo root README](../../README.md#getting-started).
+[repo root README](../../README.md#-quick-start).
 
 ## Environment variables
 
 Copy `.env.be.example` (at the repo root) to `.env.be` and fill in the
-values. `SECRET_KEY` (≥32 random characters) and `CORS_ORIGINS` are
-required — the app refuses to start without them. See
-[`core/config.py`](./core/config.py) for the full list of settings and
-their defaults.
+values. All settings are defined in [`core/config.py`](./core/config.py)
+(pydantic-settings, `case_sensitive=True`); this is the authoritative list.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `APP_NAME` | `AI Learning Platform Backend` | Cosmetic |
+| `APP_VERSION` | `1.0.0` | Cosmetic |
+| `ENVIRONMENT` | `development` | Set to `production` to disable `/docs` and `/redoc` |
+| `DEBUG` | `false` | — |
+| `HOST` | `0.0.0.0` | Only meaningful running outside Docker — see "Docker" below |
+| `PORT` | `8000` | Same caveat |
+| `SECRET_KEY` | — (**required**) | ≥32 chars, signs every JWT. No usable default — the app refuses to start rather than silently sign tokens with an empty key |
+| `DATABASE_URL` | — (**required**) | `postgresql+asyncpg://...`. Use `localhost` outside Docker, `db` (the compose service name) inside it |
+| `CORS_ORIGINS` | — (**required**) | JSON array, e.g. `["http://localhost:3000"]`. No wildcard default on purpose — an unset value must fail closed, not open |
+| `DEFAULT_LLM_PROVIDER` | `openai` | `openai` \| `openrouter` \| `gemini` \| `anthropic` \| `custom` — see [LLM providers](#llm-providers) |
+| `DEFAULT_LLM_MODEL` | `gpt-4o` | Model id for the selected provider |
+| `DEFAULT_TEMPERATURE` | `0.7` | — |
+| `DEFAULT_MAX_TOKENS` | `2048` | — |
+| `DEFAULT_TIMEOUT` | `60` | Seconds |
+| `OPENAI_API_KEY` / `OPENAI_API_BASE` | `None` / `https://api.openai.com/v1` | Required if `DEFAULT_LLM_PROVIDER=openai` |
+| `OPENROUTER_API_KEY` / `OPENROUTER_API_BASE` | `None` / `https://openrouter.ai/api/v1` | Required if using OpenRouter |
+| `OPENROUTER_PROVIDER_ORDER` | `None` | Comma-separated, e.g. `DeepInfra,SiliconFlow`. Empty = auto-select |
+| `OPENROUTER_ALLOW_FALLBACKS` | `true` | Fall back to another provider if the preferred one is unavailable |
+| `OPENROUTER_REQUIRE_PROVIDER` | `false` | Only use `OPENROUTER_PROVIDER_ORDER`, no fallback |
+| `GEMINI_API_KEY` / `GEMINI_API_BASE` | `None` / Gemini's OpenAI-compatible endpoint | Required if using Gemini |
+| `ANTHROPIC_API_KEY` | `None` | Required if using Anthropic |
+| `CUSTOM_LLM_API_KEY` / `CUSTOM_LLM_BASE_URL` | `None` / `None` | Required if `DEFAULT_LLM_PROVIDER=custom` |
+| `STREAM_TIMEOUT_SECONDS` | `60` | — |
+| `STREAM_KEEP_ALIVE` | `true` | — |
+| `ENABLE_STREAMING` | `true` | — |
+| `ENABLE_RAG` | `false` | Reserved — not implemented yet |
+| `ENABLE_WEBSEARCH` | `false` | Reserved — not implemented yet |
+| `LOG_LEVEL` | `INFO` | — |
+| `ENABLE_BANLIST_FILTER` | `true` | Toggles the `guardrails/banlist_filter.py` keyword check |
+| `BANNED_KEYWORDS` | `["illegal", "exploit", "bypass"]` | Only takes effect if the toggle above is `true` |
+
+Two things worth knowing that aren't in the table because they're **not**
+environment-configurable, despite looking like they might be:
+- Access tokens expire after a hardcoded 60 minutes
+  (`ACCESS_TOKEN_EXPIRE_MINUTES` in `auth/security.py`) — there's no env
+  var for this.
+- `find_project_root()` in `core/config.py` walks up from this file
+  looking for a `.git` directory to locate the repo root, then loads
+  `.env.be` (or `.env`) from there. Running the backend from somewhere
+  that isn't inside this git repo (e.g. a copied-out `src/backend/` with
+  no `.git` anywhere above it) means env vars must be set some other way
+  — a `.env` file won't be auto-discovered.
 
 ## Testing
 
@@ -125,19 +285,154 @@ autogenerate doesn't reliably detect renames or constraint-only changes.
 
 ## API overview
 
-All routes are prefixed `/api/v1`. Full interactive reference at `/docs`
-in non-production environments.
+All routes are prefixed `/api/v1`. Full interactive reference (request/
+response schemas, try-it-out) at `/docs` in non-production environments —
+the table below is for quickly finding the right route without opening it.
 
-| Group | File |
+**Auth** (`api/v1/auth_routes.py`)
+
+| Method & path | Does |
 |---|---|
-| Auth (register/login/logout/me) | `api/v1/auth_routes.py` |
-| Courses | `api/v1/course_routes.py` |
-| Classes | `api/v1/class_routes.py` |
-| Tasks | `api/v1/task_routes.py` |
-| Enrollments | `api/v1/enrollment_routes.py` |
-| Chat (direct + session-based, streaming) | `api/v1/chat_routes.py` |
-| Analytics (teacher-facing, ownership-scoped) | `api/v1/analytics_routes.py` |
-| Health (liveness/readiness) | `api/v1/health_routes.py` |
+| `POST /auth/register` | Create an account — `role: "student"` or `"teacher"`, self-selected with no invite/approval gate (see `CLAUDE.md`'s "Known, deliberately deferred gaps") |
+| `POST /auth/login` | Sets the `access_token` HttpOnly cookie |
+| `POST /auth/logout` | Blacklists the current token |
+| `GET /auth/me` | Current user, from the cookie/Bearer token |
+
+**Courses** (`api/v1/course_routes.py`)
+
+| Method & path | Does |
+|---|---|
+| `POST /courses/create/` | Teacher-only. Create a course |
+| `GET /courses/all` | Every active course, any authenticated user (e.g. students browsing what's available) |
+| `GET /courses/` | Just the current user's own courses (taught, or enrolled-in depending on role) |
+| `GET /courses/{course_id}` | Detail, ownership/enrollment-checked |
+| `PUT /courses/{course_id}` | Teacher-only, owner-only |
+| `DELETE /courses/{course_id}` | Teacher-only, owner-only |
+
+**Classes** (`api/v1/class_routes.py`)
+
+| Method & path | Does |
+|---|---|
+| `POST /classes/` | Create a class under a course |
+| `GET /classes/course/{course_id}` | Classes in one course |
+| `GET /classes/` | Current user's own classes |
+| `GET /classes/{class_id}` | Detail |
+| `PUT /classes/{class_id}` | Update |
+| `DELETE /classes/{class_id}` | Delete |
+
+**Tasks** (`api/v1/task_routes.py`)
+
+| Method & path | Does |
+|---|---|
+| `POST /tasks/course/{course_id}` | Create a task under a course |
+| `GET /tasks/course/{course_id}` | Tasks in one course |
+| `GET /tasks/class/{class_id}` | Tasks visible to one class |
+| `GET /tasks/{task_id}` | Detail |
+| `PUT /tasks/{task_id}` | Update |
+| `DELETE /tasks/{task_id}` | Delete |
+
+**Enrollments** (`api/v1/enrollment_routes.py`)
+
+| Method & path | Does |
+|---|---|
+| `POST /enrollments/` | Student joins a class |
+| `DELETE /enrollments/{enrollment_id}` | Leave a class |
+| `GET /enrollments/me` | Current student's enrollments |
+| `GET /enrollments/class/{class_id}` | Teacher: roster for one class |
+
+**Chat** (`api/v1/chat_routes.py`) — see [Tutoring agents & prompt analytics](#tutoring-agents--prompt-analytics)
+
+| Method & path | Does |
+|---|---|
+| `POST /chat/direct/stream`, `POST /chat/direct/generate` | One-off chat, not tied to a session/task |
+| `POST /chat/sessions/task/{task_id}` | Start a session scoped to a task |
+| `GET /chat/sessions/my` | Current student's sessions |
+| `GET /chat/sessions/task/{task_id}` | Sessions for one task |
+| `GET /chat/sessions/{session_id}` | Session detail |
+| `POST /chat/sessions/{session_id}/stream` | Send a message, stream the reply (SSE) — this is where classification fires in the background |
+| `POST /chat/sessions/{session_id}/end` | Explicitly end a session |
+| `POST /chat/sessions/{session_id}/resume` | Resume an ended session |
+| `POST /chat/sessions/{session_id}/auto-end` | Called by the frontend on unmount/navigate-away |
+| `DELETE /chat/sessions/{session_id}` | Delete a session |
+| `GET /chat/sessions/{session_id}/history` | Full message history |
+| `GET /chat/teacher/student/{student_id}/sessions` | Teacher: a student's sessions across the teacher's own courses |
+| `GET /chat/teacher/sessions/{session_id}/history` | Teacher: full history of any session in a course they teach |
+
+**Analytics** (`api/v1/analytics_routes.py`) — every route here is
+ownership-scoped, never role-only (see `CLAUDE.md` Critical Rule 2)
+
+| Method & path | Does |
+|---|---|
+| `GET /analytics/me` | Student: own summary |
+| `GET /analytics/me/classifications` | Student: own 9-signal breakdown |
+| `GET /analytics/class/{class_id}` | Teacher: class summary |
+| `GET /analytics/class/{class_id}/classifications` | Teacher: class's 9-signal breakdown |
+| `GET /analytics/course/{course_id}/classifications` | Teacher: course-wide breakdown |
+| `GET /analytics/task/{task_id}` | Teacher: task summary |
+| `GET /analytics/task/{task_id}/classifications` | Teacher: task's 9-signal breakdown |
+| `GET /analytics/student/{student_id}/classifications` | Teacher: one student's breakdown |
+| `GET /analytics/sessions/{session_id}` | Teacher: one session's analytics |
+
+**Health** (`api/v1/health_routes.py`)
+
+| Method & path | Does |
+|---|---|
+| `GET /health` | Basic check |
+| `GET /health/ready` | Readiness (DB reachable) |
+| `GET /health/live` | Liveness — what the Docker `HEALTHCHECK` hits |
+
+## Docker
+
+```bash
+docker build -t ailearning-api -f Dockerfile .
+```
+
+- Builds via `uv sync` (not pip); the build context (`src/backend/` itself)
+  is copied to `/app/backend` inside the image — the import path cares
+  about this exact layout (see `CLAUDE.md` Critical Rule 1).
+- `entrypoint.sh` runs `alembic -c backend/alembic.ini upgrade head`, then
+  `exec uvicorn backend.main:app` — migrations happen automatically on
+  every container start.
+- No `EXPOSE`, no build-time `PORT`/`HOST` default — both are
+  runtime-only, read via `${PORT:-8000}`/`${HOST:-0.0.0.0}` shell
+  fallbacks in `entrypoint.sh`.
+- `HEALTHCHECK` hits `/api/v1/health/live`.
+- Root `docker-compose.yml` builds this image locally and runs a bundled
+  `db` service (dev). Root `docker-compose.prod.yml` pulls the prebuilt
+  `ghcr.io/indonesia-ai-institute/ai-learning-platform-api:${IMAGE_TAG:-latest}`
+  image and assumes an external/managed Postgres — no bundled `db`, and
+  the API isn't given a host port mapping (not exposed to the internet
+  directly in production).
+
+## Troubleshooting
+
+**`ModuleNotFoundError: No module named 'backend'`** — you ran `pytest` or
+`uvicorn` from inside `src/backend/`, or without `PYTHONPATH` set. The
+importable package root is `src/`, not `src/backend/` and not the repo
+root. Run from the repo root with `PYTHONPATH=src` (see "Getting started"
+and "Testing" above) — this is the single most common way to hit this.
+
+**App refuses to start with a `SECRET_KEY` validation error** — it must be
+≥32 random characters; there's no usable default on purpose (see
+`CLAUDE.md` Critical Rule 6). Generate one with
+`python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+
+**Login/registration fails, or `verify_password` raises** — check that
+`bcrypt` is still pinned to `4.0.1` in `pyproject.toml`. `passlib==1.7.4`
+(the hashing library this project uses) has an internal self-test that
+crashes under `bcrypt>=5.0`. If you need a newer bcrypt, verify hashing
+end-to-end first — see `CLAUDE.md` Critical Rule 5.
+
+**Integration tests fail with a dialect/UUID-related error on SQLite** —
+they're not supposed to run on SQLite at all. Models use
+`sqlalchemy.dialects.postgresql.UUID`; integration tests need a real
+Postgres (see "Testing" above).
+
+**A new `ENABLE_*`/config toggle doesn't seem to do anything** — confirm
+it's actually read somewhere, not just defined in `Settings`. This has
+shipped broken twice (see `CLAUDE.md` Critical Rule 9) — grep for where
+you expect the toggle to be checked, and write a test asserting both
+states produce different behavior.
 
 ## Claude Code project tooling
 

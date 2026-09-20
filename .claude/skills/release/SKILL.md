@@ -65,9 +65,11 @@ root — the config path is relative to wherever you invoke it from.
 
 1. `release` job (`release.yml`): PSR tags `main`, updates
    `CHANGELOG.md`, pushes both back to the repo, and creates a GitHub
-   Release for the new tag (release notes come from the same changelog
-   template as `CHANGELOG.md`) — see `gh release list` / the repo's
-   Releases page.
+   Release for the new tag (release notes are rendered from
+   `templates/.release_notes.md.j2` — a branded wrapper around the same
+   section-grouping logic used for `CHANGELOG.md`, both copied from PSR's
+   default templates; see the root `CLAUDE.md`'s Critical Rule 4) — see
+   `gh release list` / the repo's Releases page.
 2. `test-unit` / `test-integration` jobs: only run if `released ==
    'true'`. Re-run both `test-unit.yml` and
    `test-integration.yml` — the same tests that already ran on the

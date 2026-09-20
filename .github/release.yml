@@ -1,0 +1,42 @@
+# Config for GitHub's own "Generate release notes" button / `gh release
+# create --generate-notes`, which groups notes by PR label rather than
+# commit message. This repo's actual releases are fully automated by
+# python-semantic-release (see release.yml + templates/.release_notes.md.j2),
+# which reads commit messages, not labels — this file only matters if
+# someone manually generates notes outside that pipeline (e.g. drafting
+# an out-of-band release, or comparing two arbitrary tags on GitHub).
+
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+    authors:
+      - dependabot
+      - dependabot[bot]
+  categories:
+    - title: 🚀 Features
+      labels:
+        - feature
+        - enhancement
+    - title: 🐛 Bug Fixes
+      labels:
+        - fix
+        - bug
+    - title: ⚡ Performance
+      labels:
+        - perf
+        - performance
+    - title: 🧰 Maintenance
+      labels:
+        - chore
+        - refactor
+        - ci
+        - build
+        - dependencies
+    - title: 📝 Documentation
+      labels:
+        - docs
+        - documentation
+    - title: Other Changes
+      labels:
+        - "*"

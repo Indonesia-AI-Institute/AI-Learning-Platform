@@ -2,10 +2,17 @@
 
 Next.js 16 (App Router) + React 19 frontend for the AI Learning Platform:
 course/class/task views for teachers, session-based AI tutoring chat for
-students, and prompt analytics dashboards. TanStack Query for
-server-state, react-hook-form + zod for forms, shadcn/ui (Radix) for
-components, JWT auth via an httpOnly cookie the frontend never touches
-directly.
+students, and prompt analytics dashboards that surface *how* students are
+using that chat. TanStack Query for server-state, react-hook-form + zod
+for forms, shadcn/ui (Radix) for components, JWT auth via an httpOnly
+cookie the frontend never touches directly.
+
+Two things are worth understanding before touching this codebase, both
+covered below: **the route guard** (`src/proxy.ts`) that gates every
+protected page, and **runtime API URL resolution** (`src/lib/env.ts`) —
+the same Docker image is meant to run unmodified in any environment, which
+means the backend's URL can't be baked in at build time. See
+[Architecture & data flow](#architecture--data-flow).
 
 For full-stack setup (frontend + backend together, Docker Compose,
 one-shot deployment), see the [repo root README](../../README.md). This
@@ -26,6 +33,59 @@ file covers working on the frontend on its own.
 | Package manager / runtime | [Bun](https://bun.sh) |
 | Tests | `bun test` + React Testing Library + MSW |
 
+## Architecture & data flow
+
+Most pages follow the same four-layer path from render to network:
+
+```
+page.tsx (Server or Client Component)
+       │
+       ▼
+src/hooks/*.ts        A hook wraps TanStack Query's useQuery/useMutation
+       │               (or, for chat, its own manual state — see below)
+       ▼
+src/services/*.ts      One thin object of axios calls per backend resource —
+                       no business logic lives here, just the HTTP call
+       │
+       ▼
+src/lib/api.ts          The shared axios instance — a response interceptor
+                       redirects to /login on 401, guarded against loops
+       │
+       ▼
+Backend API, base URL resolved by getApiUrl() (src/lib/env.ts)
+```
+
+**Every protected route is gated by `src/proxy.ts`** (Next.js 16 renamed
+the old `middleware.ts` convention to `proxy.ts` — this file must live at
+`src/proxy.ts`, exporting a function named `proxy`, or Next silently never
+loads it and every protected page's shell becomes reachable with zero
+redirect). It only checks that an `access_token` cookie is *present* —
+it structurally can't validate the JWT itself, since the signing secret is
+backend-only and must never reach this Edge/Node runtime. Real
+authorization happens on the backend; this file only stops an
+unauthenticated visitor from seeing a protected page's shell at all.
+
+**The API URL is resolved at container runtime, not build time.** Next.js
+normally inlines `NEXT_PUBLIC_*` vars into the client bundle when you run
+`next build` — but this image is deliberately built with no API URL set,
+so every client-side call goes through `getApiUrl()` (`src/lib/env.ts`),
+which reads `window.__ENV__` instead. `entrypoint.sh` writes that object
+into `public/env-config.js` fresh every time the container *starts*,
+which is what lets one built image move between dev/staging/prod without
+a rebuild — see `CLAUDE.md` Critical Rule 1. **Never** read
+`process.env.NEXT_PUBLIC_API_URL` directly in client-side code; it will
+compile to the literal string `"undefined"`.
+
+**Chat streaming doesn't go through the `axios`/service layer at all.**
+`src/hooks/useChat.ts` calls `fetch()` directly against
+`${getApiUrl()}/chat/sessions/{id}/stream` with `credentials: "include"`
+(so the auth cookie rides along) and reads the response body as an SSE-style
+token stream, appending to a `streamingContent` state as chunks arrive.
+It also registers a cleanup effect that fires `POST .../auto-end` when a
+student navigates away mid-session, using refs (not state) so the
+unmount handler always sees the latest `sessionId`/`isSessionActive`
+rather than a stale closure.
+
 ## Project layout
 
 ```
@@ -43,7 +103,7 @@ tests/integration/       component tests with MSW-mocked network calls
 entrypoint.sh            generates runtime env config, then starts the server
 ```
 
-See [`CLAUDE.md`](./CLAUDE.md) for the data-flow architecture, the
+See [`CLAUDE.md`](./CLAUDE.md) for the full data-flow architecture, the
 established patterns to follow for new code, and a list of hard rules
 that exist because breaking them already caused real bugs — worth a read
 before making non-trivial changes here.
@@ -70,7 +130,7 @@ bun run dev
 The app is now at `http://localhost:3000`.
 
 **Or run it via Docker** instead of installing anything locally — see the
-[repo root README](../../README.md#getting-started).
+[repo root README](../../README.md#-quick-start).
 
 ## Environment variables
 
@@ -135,16 +195,64 @@ docker build -t ailearning-frontend -f Dockerfile .
 All routes are under `src/app/`. `(auth)` and `(dashboard)` are Next.js
 route groups — they don't appear in the URL.
 
-| Route | File | Access |
-|---|---|---|
-| `/login`, `/register` | `(auth)/*/page.tsx` | Public |
-| `/dashboard` | `(dashboard)/dashboard/page.tsx` | Protected — role-specific view (student/teacher) |
-| `/courses`, `/courses/[id]`, `/courses/create` | `(dashboard)/courses/**` | Protected |
-| `/classes`, `/classes/[id]`, `/classes/create` | `(dashboard)/classes/**` | Protected |
-| `/tasks`, `/tasks/[id]`, `/tasks/create` | `(dashboard)/tasks/**` | Protected |
-| `/chat/sessions`, `/chat/[sessionId]` | `(dashboard)/chat/**` | Protected — streaming chat |
-| `/analytics`, `/analytics/student/[id]` | `(dashboard)/analytics/**` | Protected — teacher-facing |
-| `/enrollments/join` | `(dashboard)/enrollments/join/page.tsx` | Protected — student joins a class |
+| Route | File | Access | What it does |
+|---|---|---|---|
+| `/login`, `/register` | `(auth)/*/page.tsx` | Public | `RegisterForm` lets any visitor pick `role: teacher` — see `CLAUDE.md`'s "Known, deliberately deferred gaps" |
+| `/dashboard` | `(dashboard)/dashboard/page.tsx` | Protected | Role-specific landing view — `StudentDashboard` or `TeacherDashboard` |
+| `/courses`, `/courses/[id]`, `/courses/create` | `(dashboard)/courses/**` | Protected | Browse/create/manage courses |
+| `/classes`, `/classes/[id]`, `/classes/create` | `(dashboard)/classes/**` | Protected | Classes within a course; students enroll from here |
+| `/tasks`, `/tasks/[id]`, `/tasks/create` | `(dashboard)/tasks/**` | Protected | Tasks a teacher assigns; the thing a chat session is scoped to |
+| `/chat/sessions`, `/chat/[sessionId]` | `(dashboard)/chat/**` | Protected | The student-facing tutoring chat — see `useChat` in [Architecture & data flow](#architecture--data-flow) |
+| `/analytics` | `(dashboard)/analytics/page.tsx` | Protected, teacher-facing | Course → class → task drill-down, a 9-signal behavior-mix chart per group, and a per-student table ranked by prompt count |
+| `/analytics/student/[studentId]` | `(dashboard)/analytics/student/[studentId]/page.tsx` | Protected, teacher-facing | One student's own classification summary, plus their chat sessions — expandable into the full conversation or a "prompts only" view |
+| `/enrollments/join` | `(dashboard)/enrollments/join/page.tsx` | Protected | Student joins a class (by code/link) |
+
+See the [repo root README](../../README.md#-the-teacher-dashboard) for
+what the analytics pages look like from a teacher's point of view, not
+just which files they live in.
+
+## Troubleshooting
+
+**Frontend can't reach the API / calls go to `undefined`** — check
+`NEXT_PUBLIC_API_URL` in `.env.fe`, and confirm you're not reading
+`process.env.NEXT_PUBLIC_API_URL` directly anywhere client-side (see
+[Architecture & data flow](#architecture--data-flow)). Changing the value
+and restarting the container is enough — no rebuild needed, since it's
+resolved at runtime via `public/env-config.js`.
+
+**A protected page's shell renders for a logged-out visitor** — the route
+guard didn't load. Confirm the file is exactly `src/proxy.ts` (sibling of
+`src/app`, not `src/frontend/middleware.ts` or any other location/name)
+and exports a function named `proxy`. Verify live, not just by reading the
+code: build the image, `curl` a protected path with no cookie, and confirm
+a `307` to `/login`.
+
+**Stuck in a redirect loop to `/login`** — check `src/lib/api.ts`'s 401
+response interceptor; it's guarded against redirect loops but a change
+here is exactly the kind of thing that can silently reintroduce one.
+
+**A component test fails with "found multiple elements" on a Radix
+`Select` value** — query `getByRole("option", { name: "..." })`, not
+`getByText(...)`. Radix renders the selected item's text twice (a hidden
+measurement copy + the real option), and happy-dom doesn't compute layout
+well enough for jest-dom's visibility filtering to exclude the hidden one.
+
+**The full `bun test` suite fails with `ECONNREFUSED` but individual test
+files pass** — don't add a per-file `beforeAll(() => server.listen())`
+for the MSW server; it's a shared singleton whose lifecycle is registered
+once, globally, in `tests/msw.setup.ts`. Always verify a test change
+against the full suite, not just the file you touched — see `CLAUDE.md`'s
+"Testing" section for the full story.
+
+**A new page/component is missing labels/ARIA attributes at runtime even
+though the JSX looks right** — in a `components/ui/form.tsx`-based form,
+`FormControl` must wrap the actual input element directly, never a
+wrapping `<div>`. If an input needs a sibling overlay (an icon button, a
+suffix), put that wrapping `<div>` *outside* `FormControl`.
+
+For anything not covered here, `CLAUDE.md`'s "Critical rules" section has
+the full incident behind each of these — worth reading before assuming a
+fix is safe.
 
 ## Claude Code project tooling
 

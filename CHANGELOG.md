@@ -1,6 +1,99 @@
 # CHANGELOG
 
 
+## v1.2.2 (2026-09-20)
+
+### Bug Fixes
+
+- **auth**: Add COOKIE_DOMAIN so login works across subdomains
+  ([`fbb667f`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/fbb667fdaccb17f91ea09b1ce8cf94280f43fe4f))
+
+With the frontend and API on sibling subdomains, the access_token cookie had no Domain and was
+  host-only to the API. The frontend's proxy.ts never saw it, so every login bounced back to /login.
+
+Add an optional COOKIE_DOMAIN setting, applied to set_cookie on login/register and delete_cookie on
+  logout. Empty keeps the previous host-only behaviour. Document it in the env template and READMEs,
+  and add the other backend settings missing from the template (GEMINI_API_BASE, LOG_FILE,
+  ENABLE_BANLIST_FILTER, BANNED_KEYWORDS).
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### Continuous Integration
+
+- Add a branded release-notes template
+  ([`41abc78`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/41abc78354a79635ad708d0a5f2e8afc70247a65))
+
+Give every GitHub Release a consistent, on-brand template instead of semantic-release's plain
+  default:
+
+- templates/.release_notes.md.j2 is the file PSR now renders each release's GitHub Release body from
+  — a branded header/footer wrapped around the same unmodified Features/Bug Fixes/Breaking Changes
+  grouping logic PSR ships by default. - templates/CHANGELOG.md.j2 and templates/.components/* are
+  byte-for-byte copies of PSR's own default templates, required because semantic-release treats a
+  custom template directory as all-or-nothing: once any other template exists there, CHANGELOG.md
+  generation stops using PSR's built-in default too and needs its own file present, or CHANGELOG.md
+  would simply stop updating on release. Verified this doesn't change CHANGELOG.md's output by
+  diffing a real render before/after. - .github/release.yml adds GitHub's own native label-based
+  release-notes categorization, for the "Generate release notes" button/`--generate-notes` path
+  outside the automated pipeline.
+
+Verified end-to-end in an isolated git worktree by simulating a real version bump through the exact
+  `semantic-release version` command release.yml runs, with the pinned CI version (9.21.2) —
+  confirmed the custom template renders correctly on that code path, not just via the standalone
+  `changelog` command.
+
+Documents the all-or-nothing template-directory behavior in CLAUDE.md so a future stray .j2 file
+  added to templates/ doesn't silently break CHANGELOG.md generation, and fixes two small
+  pre-existing doc bugs found while editing nearby text: a stale README anchor reference, and a
+  leftover `cp .env.example .env` command referencing a third env file Critical Rule 1 says
+  shouldn't exist.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### Documentation
+
+- Enrich backend and frontend project READMEs
+  ([`dac4389`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/dac43896072a7c37edfbc675eff180a00a371aa0))
+
+Both were accurate but terse — a project layout tree plus a handful of short reference sections.
+  Expand them into comprehensive references for someone working in that project on its own:
+
+Backend: an architecture diagram (request-flow layers, plus the chat side-path through agents/llm),
+  a new section explaining the DirectTutor/ SocraticTutor agents and the exact nine
+  prompt-classifier signals (with the asyncio.gather/create_task mechanism that gives zero added
+  latency), a full LLM provider table, every Settings field with its default (cross-checked against
+  core/config.py — including two things that look env-configurable but aren't), a complete
+  per-resource API route table (verified against the actual route/function definitions), a Docker
+  section, and a troubleshooting section drawn from CLAUDE.md's critical rules.
+
+Frontend: a data-flow diagram (page -> hook -> service -> axios -> backend), an explanation of the
+  route guard and runtime API URL resolution (why the same Docker image works unmodified across
+  environments), how useChat's streaming bypasses the service layer, a richer Pages table with what
+  each route actually does, and a troubleshooting section for the most likely real gotchas.
+
+Also fixed two dangling cross-file links found while verifying every anchor in all three READMEs by
+  script: both files still pointed at the root README's old "#getting-started" anchor, which the
+  root README rewrite renamed to "Quick Start".
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Rewrite root README as a marketing front page
+  ([`612f5dc`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/612f5dc29daeb903919c26ec58ae6fe003a768fe))
+
+The old README was a technical reference (env var tables, migration commands, troubleshooting)
+  duplicated across the repo root and each project's own README. Rewrite it as the project's front
+  door instead: a pitch that leads with the actual problem this platform solves (giving teachers
+  visibility into how students prompt an AI, not just whether they used one), a features list, a
+  two-audience "How It Works" walkthrough with a diagram, a dedicated Teacher Dashboard section, and
+  a separate "Under the Hood" section for the technical flow. Detailed setup/reference content now
+  lives only in CLAUDE.md and the backend/frontend READMEs, linked from here instead of duplicated.
+
+Quick Start keeps both Docker paths (pull prebuilt images vs. build from source) the root README
+  already had, simplified to match the new tone.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+
 ## v1.2.1 (2026-09-11)
 
 ### Refactoring

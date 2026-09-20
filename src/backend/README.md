@@ -217,6 +217,7 @@ values. All settings are defined in [`core/config.py`](./core/config.py)
 | `SECRET_KEY` | — (**required**) | ≥32 chars, signs every JWT. No usable default — the app refuses to start rather than silently sign tokens with an empty key |
 | `DATABASE_URL` | — (**required**) | `postgresql+asyncpg://...`. Use `localhost` outside Docker, `db` (the compose service name) inside it |
 | `CORS_ORIGINS` | — (**required**) | JSON array, e.g. `["http://localhost:3000"]`. No wildcard default on purpose — an unset value must fail closed, not open |
+| `COOKIE_DOMAIN` | `None` | Domain of the `access_token` cookie. Set to the shared parent (e.g. `.example.com`) when the frontend and API are on different subdomains — otherwise the cookie is host-only to the API and the frontend's route guard never sees it. Leave empty for local/same-host setups |
 | `DEFAULT_LLM_PROVIDER` | `openai` | `openai` \| `openrouter` \| `gemini` \| `anthropic` \| `custom` — see [LLM providers](#llm-providers) |
 | `DEFAULT_LLM_MODEL` | `gpt-4o` | Model id for the selected provider |
 | `DEFAULT_TEMPERATURE` | `0.7` | — |
@@ -236,6 +237,7 @@ values. All settings are defined in [`core/config.py`](./core/config.py)
 | `ENABLE_RAG` | `false` | Reserved — not implemented yet |
 | `ENABLE_WEBSEARCH` | `false` | Reserved — not implemented yet |
 | `LOG_LEVEL` | `INFO` | — |
+| `LOG_FILE` | `logs/app.log` | Read directly via `os.getenv` in `observability/logging/`, not through `Settings` |
 | `ENABLE_BANLIST_FILTER` | `true` | Toggles the `guardrails/banlist_filter.py` keyword check |
 | `BANNED_KEYWORDS` | `["illegal", "exploit", "bypass"]` | Only takes effect if the toggle above is `true` |
 
@@ -294,7 +296,7 @@ the table below is for quickly finding the right route without opening it.
 | Method & path | Does |
 |---|---|
 | `POST /auth/register` | Create an account — `role: "student"` or `"teacher"`, self-selected with no invite/approval gate (see `CLAUDE.md`'s "Known, deliberately deferred gaps") |
-| `POST /auth/login` | Sets the `access_token` HttpOnly cookie |
+| `POST /auth/login` | Sets the `access_token` HttpOnly cookie (scoped by `COOKIE_DOMAIN`, `Secure` when `ENVIRONMENT=production`) |
 | `POST /auth/logout` | Blacklists the current token |
 | `GET /auth/me` | Current user, from the cookie/Bearer token |
 
@@ -422,6 +424,13 @@ and "Testing" above) — this is the single most common way to hit this.
 (the hashing library this project uses) has an internal self-test that
 crashes under `bcrypt>=5.0`. If you need a newer bcrypt, verify hashing
 end-to-end first — see `CLAUDE.md` Critical Rule 5.
+
+**Login returns 200 but the user lands back on `/login`** — the frontend
+and API are on different subdomains and `COOKIE_DOMAIN` isn't set, so the
+`access_token` cookie is host-only to the API and the frontend's route
+guard never sees it. Set `COOKIE_DOMAIN` to the shared parent (e.g.
+`.example.com`), serve both over HTTPS with `ENVIRONMENT=production`, and
+log in again.
 
 **Integration tests fail with a dialect/UUID-related error on SQLite** —
 they're not supposed to run on SQLite at all. Models use

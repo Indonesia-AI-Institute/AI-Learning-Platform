@@ -43,6 +43,7 @@ async def register(
         secure=settings.ENVIRONMENT == "production",
         samesite="lax",
         max_age=COOKIE_MAX_AGE,
+        domain=settings.COOKIE_DOMAIN or None,
     )
 
     return token_data
@@ -68,6 +69,7 @@ async def login(
         secure=settings.ENVIRONMENT == "production",
         samesite="lax",
         max_age=COOKIE_MAX_AGE,
+        domain=settings.COOKIE_DOMAIN or None,
     )
 
     return token_data
@@ -94,6 +96,7 @@ async def logout(
         httponly=True,
         secure=settings.ENVIRONMENT == "production",
         samesite="lax",
+        domain=settings.COOKIE_DOMAIN or None,
     )
 
     return {"message": "Logged out successfully"}

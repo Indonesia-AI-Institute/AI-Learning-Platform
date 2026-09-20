@@ -142,6 +142,10 @@ values.
 | `NEXT_PUBLIC_API_URL` | Yes | Backend API base URL, resolved at container **runtime** — see `src/lib/env.ts` and Critical Rule 1 in `CLAUDE.md` |
 | `PORT` | No (default `3000`) | Port the server listens on |
 
+If the API is on a different subdomain than the frontend, the backend also
+needs `CORS_ORIGINS` and `COOKIE_DOMAIN` set — see the backend README's
+[environment variables](../backend/README.md#environment-variables).
+
 Changing `PORT` here only changes what the app listens to inside its
 container — `docker-compose.yml`'s host-side port mapping is separate
 and needs updating by hand to match (see `CLAUDE.md`'s Critical Rule 9).
@@ -226,6 +230,12 @@ guard didn't load. Confirm the file is exactly `src/proxy.ts` (sibling of
 and exports a function named `proxy`. Verify live, not just by reading the
 code: build the image, `curl` a protected path with no cookie, and confirm
 a `307` to `/login`.
+
+**Login succeeds but you land back on `/login`** — `proxy.ts` never saw the
+`access_token` cookie. With the API on a different subdomain, set
+`COOKIE_DOMAIN` (e.g. `.example.com`) in the backend's `.env.be`; the
+cookie is otherwise host-only to the API host. Check the login response
+in dev tools for a `Set-Cookie` header with the right `Domain`.
 
 **Stuck in a redirect loop to `/login`** — check `src/lib/api.ts`'s 401
 response interceptor; it's guarded against redirect loops but a change

@@ -227,6 +227,23 @@ docker compose ps                     # check both services are healthy
 docker compose logs api --tail=30     # tail the backend if something looks off
 ```
 
+### Deploying frontend and API on different subdomains
+
+If the two are served from sibling hosts (e.g. `app.example.com` and
+`api.example.com`), set these so login works — without a shared cookie
+domain the browser keeps the session cookie on the API host only, the
+frontend never sees it, and every login bounces back to `/login`:
+
+| File | Variable | Example |
+|---|---|---|
+| `.env.be` | `ENVIRONMENT` | `production` (marks the cookie `Secure`, so serve both over HTTPS) |
+| `.env.be` | `CORS_ORIGINS` | `["https://app.example.com"]` |
+| `.env.be` | `COOKIE_DOMAIN` | `.example.com` (the shared parent domain) |
+| `.env.fe` | `NEXT_PUBLIC_API_URL` | `https://api.example.com/api/v1` |
+
+Leave `COOKIE_DOMAIN` empty for local or same-host setups. After changing
+it, users need to log in again.
+
 > Need a different LLM provider, a non-Docker setup, or a full environment
 > variable reference? See [Documentation](#-documentation) below.
 

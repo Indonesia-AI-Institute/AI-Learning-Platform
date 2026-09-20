@@ -104,6 +104,12 @@ class Settings(BaseSettings):
     # otherwise fail open to any origin.
     CORS_ORIGINS: List[str]
 
+    # Set when the frontend and API sit on sibling subdomains (e.g.
+    # app.example.com + api.example.com): without a shared Domain the
+    # cookie is host-only to the API, so the frontend's proxy.ts never
+    # sees it. Leave unset for same-host/local setups.
+    COOKIE_DOMAIN: str | None = None
+
     LOG_LEVEL: str = "INFO"
 
     ENABLE_BANLIST_FILTER: bool = True

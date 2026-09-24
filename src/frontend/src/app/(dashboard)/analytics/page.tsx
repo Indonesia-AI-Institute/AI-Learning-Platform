@@ -23,7 +23,7 @@ type FilterLevel = "course" | "class" | "task";
 // reconcile their full, unrelated shapes into one union.
 type SelectableItem = { id: string; name?: string; title?: string };
 
-type PromptColKey = Exclude<keyof PromptClassificationRow, "student_id" | "total_prompts">;
+type PromptColKey = Exclude<keyof PromptClassificationRow, "student_id" | "student_name" | "total_prompts">;
 
 const PROMPT_COLS: { key: PromptColKey; label: string }[] = [
   { key: "direct_answer_pct", label: "Direct" },
@@ -48,8 +48,10 @@ function ClassificationTable({
 
   const filtered = useMemo(() => {
     if (!search) return data;
+    const q = search.toLowerCase();
     return data.filter((row) =>
-      (row.student_id ?? "").toLowerCase().includes(search.toLowerCase())
+      (row.student_name ?? "").toLowerCase().includes(q) ||
+      (row.student_id ?? "").toLowerCase().includes(q)
     );
   }, [data, search]);
 
@@ -86,7 +88,7 @@ function ClassificationTable({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
-          placeholder="Search by student ID..."
+          placeholder="Search by student name..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
@@ -110,10 +112,14 @@ function ClassificationTable({
           </thead>
           <tbody className="divide-y">
             {filtered.map((row, idx) => (
-              <tr key={idx} className="hover:bg-muted/30">
-                <td className="px-3 py-2.5 font-mono text-muted-foreground">
-                  {row.student_id ? row.student_id.slice(0, 8) + "..." : "—"}
-                </td>
+              <tr key={row.student_id ?? idx} className="hover:bg-muted/30">
+                {row.student_name ? (
+                  <td className="px-3 py-2.5 font-medium whitespace-nowrap">{row.student_name}</td>
+                ) : (
+                  <td className="px-3 py-2.5 font-mono text-muted-foreground">
+                    {row.student_id ? row.student_id.slice(0, 8) + "..." : "—"}
+                  </td>
+                )}
                 <td className="px-3 py-2.5 text-right font-medium">{row.total_prompts}</td>
                 {PROMPT_COLS.map((col) => (
                   <td key={col.key} className="px-3 py-2.5 text-right">

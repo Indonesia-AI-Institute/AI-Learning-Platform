@@ -4,6 +4,7 @@ import { ChatSession, ChatHistoryResponse } from "@/types/chat.types";
 
 export interface PromptClassificationRow {
   student_id?: string;
+  student_name?: string;
   total_prompts: number;
   direct_answer_pct: number;
   explanation_pct: number;

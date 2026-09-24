@@ -199,7 +199,7 @@ function SessionCard({ session }: { session: ChatSession }) {
   );
 }
 
-type PromptColKey = Exclude<keyof PromptClassificationRow, "student_id" | "total_prompts">;
+type PromptColKey = Exclude<keyof PromptClassificationRow, "student_id" | "student_name" | "total_prompts">;
 
 const PROMPT_COLS: { key: PromptColKey; label: string }[] = [
   { key: "direct_answer_pct", label: "Direct Answer" },
@@ -253,6 +253,9 @@ export default function StudentAnalyticsDetailPage() {
 
         <div>
           <h2 className="text-2xl font-semibold">Student Activity</h2>
+          {classifications?.[0]?.student_name && (
+            <p className="text-sm font-medium mt-1">{classifications[0].student_name}</p>
+          )}
           <p className="text-xs text-muted-foreground font-mono mt-1">ID: {studentId}</p>
         </div>
 

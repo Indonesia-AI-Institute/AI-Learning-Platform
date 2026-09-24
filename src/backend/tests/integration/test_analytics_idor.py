@@ -139,6 +139,19 @@ async def test_teacher_cannot_see_other_teachers_class_analytics(client, worlds)
     assert resp.json()["students"] == []
 
 
+async def test_teacher_sees_own_class_classifications_with_student_name(client, worlds):
+    a, _b = worlds
+    resp = await client.get(
+        f"/api/v1/analytics/class/{a['class'].id}/classifications",
+        headers={"Authorization": f"Bearer {_token(a['teacher'])}"},
+    )
+    assert resp.status_code == 200
+    students = resp.json()["students"]
+    assert len(students) == 1
+    assert students[0]["student_id"] == str(a["student"].id)
+    assert students[0]["student_name"] == "Student a"
+
+
 async def test_teacher_cannot_see_other_teachers_class_classifications(client, worlds):
     a, b = worlds
     resp = await client.get(

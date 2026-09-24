@@ -17,7 +17,7 @@ import {
   Cell,
 } from "recharts";
 
-type PromptTypeKey = Exclude<keyof PromptClassificationRow, "student_id" | "total_prompts">;
+type PromptTypeKey = Exclude<keyof PromptClassificationRow, "student_id" | "student_name" | "total_prompts">;
 
 const PROMPT_TYPES: { key: PromptTypeKey; label: string; color: string }[] = [
   { key: "direct_answer_pct", label: "Direct Answer", color: "#6366f1" },

@@ -4,6 +4,7 @@ from backend.models.class_model import Class
 from backend.models.course import Course
 from backend.models.prompt_classification import PromptClassification
 from backend.models.task import Task
+from backend.models.user import User
 from backend.observability.logging.logger import get_logger
 from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,6 +51,7 @@ class PromptClassificationService:
         """Build reusable aggregate select for classification stats."""
         return select(
             PromptClassification.student_id,
+            User.full_name.label("student_name"),
             func.count(PromptClassification.id).label("total_prompts"),
             func.coalesce(func.sum(PromptClassification.is_direct_answer.cast(Integer)), 0).label("direct_answer"),
             func.coalesce(func.sum(PromptClassification.is_explanation.cast(Integer)), 0).label("explanation"),
@@ -60,7 +62,7 @@ class PromptClassificationService:
             func.coalesce(func.sum(PromptClassification.is_summary.cast(Integer)), 0).label("summary"),
             func.coalesce(func.sum(PromptClassification.is_translation.cast(Integer)), 0).label("translation"),
             func.coalesce(func.sum(PromptClassification.is_brainstorm.cast(Integer)), 0).label("brainstorm"),
-        )
+        ).join(User, PromptClassification.student_id == User.id)
 
     def _row_to_dict(self, row, include_student_id: bool = True) -> dict:
         total = row.total_prompts or 1
@@ -80,6 +82,7 @@ class PromptClassificationService:
 
         if include_student_id:
             result["student_id"] = str(row.student_id)
+            result["student_name"] = row.student_name
 
         return result
 
@@ -91,7 +94,7 @@ class PromptClassificationService:
             .join(Task, PromptClassification.task_id == Task.id)
             .join(Course, Task.course_id == Course.id)
             .where(PromptClassification.task_id == task_id, Course.teacher_id == teacher_id)
-            .group_by(PromptClassification.student_id)
+            .group_by(PromptClassification.student_id, User.full_name)
         )
         result = await self.db.execute(stmt)
         return [self._row_to_dict(row) for row in result.all()]
@@ -105,7 +108,7 @@ class PromptClassificationService:
             .join(Course, Task.course_id == Course.id)
             .join(Class, Course.id == Class.course_id)
             .where(Class.id == class_id, Course.teacher_id == teacher_id)
-            .group_by(PromptClassification.student_id)
+            .group_by(PromptClassification.student_id, User.full_name)
         )
         result = await self.db.execute(stmt)
         return [self._row_to_dict(row) for row in result.all()]
@@ -118,7 +121,7 @@ class PromptClassificationService:
             .join(Task, PromptClassification.task_id == Task.id)
             .join(Course, Task.course_id == Course.id)
             .where(Task.course_id == course_id, Course.teacher_id == teacher_id)
-            .group_by(PromptClassification.student_id)
+            .group_by(PromptClassification.student_id, User.full_name)
         )
         result = await self.db.execute(stmt)
         return [self._row_to_dict(row) for row in result.all()]
@@ -135,7 +138,7 @@ class PromptClassificationService:
                 PromptClassification.student_id == student_id,
                 Course.teacher_id == teacher_id,
             )
-            .group_by(PromptClassification.student_id)
+            .group_by(PromptClassification.student_id, User.full_name)
         )
         result = await self.db.execute(stmt)
         rows = result.all()
@@ -147,7 +150,7 @@ class PromptClassificationService:
         stmt = (
             self._build_aggregate_select()
             .where(PromptClassification.student_id == student_id)
-            .group_by(PromptClassification.student_id)
+            .group_by(PromptClassification.student_id, User.full_name)
         )
         result = await self.db.execute(stmt)
         row = result.one_or_none()

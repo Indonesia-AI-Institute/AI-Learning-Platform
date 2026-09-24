@@ -1,6 +1,20 @@
 # CHANGELOG
 
 
+## v1.3.0 (2026-09-24)
+
+### Features
+
+- **analytics**: Show student name instead of ID in teacher analytics
+  ([`07d02e1`](https://github.com/Indonesia-AI-Institute/AI-Learning-Platform/commit/07d02e16a5bf54c20f959c43a43ecdb97723b77b))
+
+The class/course/task classification endpoints now join users and return student_name alongside
+  student_id. The teacher analytics table displays the name (falling back to the truncated ID),
+  search matches name or ID, and the student detail page shows the name in its header.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+
 ## v1.2.2 (2026-09-20)
 
 ### Bug Fixes
